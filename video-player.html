@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频播放</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .player-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .video-section {
+            position: relative;
+            width: 100%;
+        }
+
+        #videoPlayer {
+            width: 100%;
+            height: 70vh;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .danmu-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70vh;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .danmu-item {
+            position: absolute;
+            white-space: nowrap;
+            font-size: 20px;
+            text-shadow: 1px 1px 2px #000;
+            animation: danmu-move 6s linear;
+            opacity: 0.9;
+            z-index: 10;
+            /* 确保弹幕从右侧完全进入视频区域 */
+            transform-origin: top right;
+        }
+
+        @keyframes danmu-move {
+            0% { 
+                transform: translateX(calc(100% + 1300px)); /* 从屏幕外右侧500px处开始 */
+                opacity: 0; /* 开始时透明 */
+            }
+            5% { 
+                opacity: 0.9; /* 进入视野后显示 */
+            }
+            95% { 
+                opacity: 0.9; /* 离开视野前保持显示 */
+            }
+            100% { 
+                transform: translateX(-130%); 
+                opacity: 0; /* 完全离开后透明 */
+            }
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: background-color 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .comment-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .comment-form {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .comment-input {
+            flex: 1;
+            padding: 0.8rem;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #222;
+            color: white;
+            font-size: 14px;
+        }
+
+        .comment-submit {
+            padding: 0.8rem 1.5rem;
+            background: #00a1d6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .comment-submit:hover:not(:disabled) {
+            background: #008cc3;
+        }
+
+        .comment-submit:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        .comment-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .comment-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .comment-list::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        .comment-list::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+
+        .comment-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        .comment-item {
+            padding: 1rem;
+            border-bottom: 1px solid #333;
+            transition: background-color 0.2s;
+        }
+
+        .comment-item:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .comment-content {
+            margin-bottom: 0.5rem;
+            word-break: break-word;
+        }
+
+        .comment-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .danmu-controls {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            display: flex;
+            gap: 1rem;
+            background: rgba(0,0,0,0.7);
+            padding: 0.8rem;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .danmu-input {
+            padding: 0.5rem;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #222;
+            color: white;
+            width: 200px;
+            font-size: 14px;
+        }
+
+        .danmu-send {
+            padding: 0.5rem 1rem;
+            background: #00a1d6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .danmu-send:hover:not(:disabled) {
+            background: #008cc3;
+        }
+
+        .danmu-send:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        .video-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .video-description {
+            color: #ccc;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #888;
+        }
+
+        .empty-comments {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+        }
+        
+        /* 登录/注册模态框样式 */
+        .auth-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ecf0f3;
+            padding: 2rem;
+            border-radius: 1rem;
+            z-index: 2001;
+            min-width: 400px;
+            display: none;
+            box-shadow: 
+                6px 6px 12px #d1d9e6,
+                -6px -6px 12px #ffffff;
+            flex-direction: column;
+        }
+        
+        /* 用户信息样式 */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.8rem 1.2rem;
+            background-color: #f0f2f5;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+        }
+        
+        .user-name {
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            padding: 0.4rem 1rem;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        /* 删除视频按钮样式 */
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            margin-top: 1rem;
+        }
+        
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            padding: 0.8rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        
+        .auth-tab.active {
+            color: #333;
+            font-weight: 600;
+            background: white;
+            box-shadow: inset 2px 2px 5px #d1d9e6,
+                        inset -2px -2px 5px #ffffff;
+        }
+        
+        .auth-form {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: inset 2px 2px 5px #d1d9e6,
+                        inset -2px -2px 5px #ffffff;
+        }
+        
+        .auth-form h3 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            color: #333;
+        }
+        
+        /* 上传按钮样式 */
+        .upload-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        
+        .upload-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 3000;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+
+        .message.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .player-container {
+                padding: 1rem;
+                gap: 1rem;
+            }
+            
+            #videoPlayer {
+                height: 50vh;
+            }
+            
+            .danmu-container {
+                height: 50vh;
+            }
+            
+            .danmu-controls {
+                bottom: 60px;
+                right: 10px;
+                left: 10px;
+            }
+            
+            .danmu-input {
+                flex: 1;
+            }
+            
+            .comment-form {
+                flex-direction: column;
+            }
+            
+            .back-btn {
+                top: 10px;
+                left: 10px;
+                padding: 8px 16px;
+            }
+        }
+
+        /* 遮罩层样式 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: none;
+            cursor: pointer;
+        }
+        
+        /* 调整模态框z-index，确保在遮罩层上方 */
+        .auth-modal {
+            z-index: 2001;
+        }    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.history.back()">返回列表</button>
+    <div style="position: absolute; top: 20px; right: 20px;">
+        <button id="loginBtn" class="upload-btn" onclick="toggleAuthModal(true, 'login')">登录</button>
+        <div id="userInfo" class="user-info" style="display: none;"></div>
+    </div>
+    
+    <div class="player-container">
+        <div class="video-section">
+            <video id="videoPlayer" controls autoplay>
+                <source src="" type="video/mp4">
+                您的浏览器不支持视频播放
+            </video>
+            
+            <div class="danmu-container" id="danmuContainer"></div>
+            
+            <div class="danmu-controls">
+                <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕...">
+                <button class="danmu-send" onclick="sendDanmu()">发送</button>
+            </div>
+        </div>
+        
+        <div>
+            <h1 class="video-title" id="videoTitle"></h1>
+            <p class="video-description" id="videoDescription"></p>
+            <div id="videoActions" style="display: none;">
+                <button id="deleteVideoBtn" class="delete-btn" onclick="confirmDeleteVideo()">删除视频</button>
+            </div>
+        </div>
+        
+        <div class="comment-section">
+            <h2 style="margin-bottom: 1rem;">评论区</h2>
+            <div class="comment-form">
+                <input type="text" class="comment-input" id="commentInput" placeholder="发表评论...">
+                <button class="comment-submit" onclick="submitComment()">评论</button>
+            </div>
+            
+            <div class="comment-list" id="commentList">
+                <div class="loading">加载评论中...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <!-- 遮罩层 -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- 登录/注册模态框 -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-tabs">
+            <button id="loginTab" class="auth-tab" onclick="switchAuthTab('login')">登录</button>
+            <button id="registerTab" class="auth-tab" onclick="switchAuthTab('register')">注册</button>
+        </div>
+        
+        <!-- 登录表单 -->
+        <div id="loginForm" class="auth-form">
+            <h3>用户登录</h3>
+            <div style="margin-bottom: 1rem;">
+                <input type="text" id="loginUsername" placeholder="用户名" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <input type="password" id="loginPassword" placeholder="密码" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="submit-btn" onclick="submitLogin()">登录</button>
+                <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+            </div>
+        </div>
+        
+        <!-- 注册表单 -->
+        <div id="registerForm" class="auth-form" style="display: none;">
+            <h3>用户注册</h3>
+            <div style="margin-bottom: 1rem;">
+                <input type="text" id="registerUsername" placeholder="用户名（4-20个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <input type="password" id="registerPassword" placeholder="密码（至少6个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <input type="text" id="registerNickname" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="submit-btn" onclick="submitRegister()">注册</button>
+                <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 设置后端API基础URL为用户指定的地址
+        const API_BASE = 'http://152.136.175.209:3002';
+        let videoId = null;
+        let videoData = null;
+        let danmus = [];
+        let comments = [];
+        let danmuIdCounter = 0;
+        let currentUser = null;
+
+        // 初始化播放器
+        async function initPlayer() {
+            videoId = new URLSearchParams(window.location.search).get('id');
+            if (!videoId) {
+                showMessage('无效的视频ID', true);
+                return;
+            }
+            
+            // 检查用户登录状态
+            await checkLoginStatus();
+
+            try {
+                // 显示加载状态
+                document.getElementById('commentList').innerHTML = '<div class="loading">加载中...</div>';
+                
+                // 获取视频信息，包含用户ID以便判断是否为视频所有者和显示上传者昵称
+                const response = await fetch(`${API_BASE}/api/videos/${videoId}`);
+                const { code, data } = await response.json();
+                
+                if (code === 200) {
+                    videoData = data;
+                    document.title = data.title + ' - 视频分享平台';
+                    document.getElementById('videoPlayer').src = data.video_path;
+                    document.getElementById('videoTitle').textContent = data.title;
+                    
+                    // 显示视频描述和上传者昵称
+                    // 修复双重转义问题：创建DOM元素而不是直接拼接HTML
+                    const videoDescElement = document.getElementById('videoDescription');
+                    videoDescElement.innerHTML = '';
+                    
+                    // 创建描述段落
+                    const descPara = document.createElement('p');
+                    descPara.textContent = data.description || '暂无描述';
+                    videoDescElement.appendChild(descPara);
+                    
+                    // 创建上传者信息段落
+                    const uploaderPara = document.createElement('p');
+                    uploaderPara.style.marginTop = '0.8rem';
+                    uploaderPara.style.color = '#00a1d6';
+                    uploaderPara.style.fontWeight = 'bold';
+                    uploaderPara.textContent = data.nickname ? `上传者：${data.nickname}` : '上传者：匿名用户';
+                    videoDescElement.appendChild(uploaderPara);
+                    
+                    // 加载弹幕和评论（并行加载以提高性能）
+                    await Promise.all([loadDanmus(), loadComments()]);
+                    
+                    // 检查当前用户是否为视频所有者
+                    checkVideoOwnership();
+                } else {
+                    throw new Error('视频加载失败');
+                }
+            } catch (error) {
+                showMessage('视频加载失败: ' + error.message, true);
+                // 3秒后返回首页
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 3000);
+            }
+        }
+        
+        // 检查视频所有者
+        async function checkVideoOwnership() {
+            if (!currentUser) {
+                document.getElementById('videoActions').style.display = 'none';
+                return;
+            }
+            
+            try {
+                // 获取更详细的视频信息，包含user_id
+                const response = await fetch(`${API_BASE}/api/videos/${videoId}`, {
+                    headers: {
+                        'Authorization': localStorage.getItem('authToken') ? `Bearer ${localStorage.getItem('authToken')}` : ''
+                    }
+                });
+                
+                const { code, data } = await response.json();
+                if (code === 200 && data.user_id && data.user_id === currentUser.id) {
+                    document.getElementById('videoActions').style.display = 'block';
+                } else {
+                    document.getElementById('videoActions').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('检查视频所有权失败:', error);
+                document.getElementById('videoActions').style.display = 'none';
+            }
+        }
+        
+        // 确认删除视频
+        function confirmDeleteVideo() {
+            if (confirm('确定要删除这个视频吗？此操作不可恢复，视频和封面文件将被永久删除。')) {
+                deleteVideo();
+            }
+        }
+        
+        // 删除视频
+        async function deleteVideo() {
+            const deleteBtn = document.getElementById('deleteVideoBtn');
+            try {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '删除中...';
+                
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/videos/${videoId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    showMessage('视频删除成功');
+                    // 2秒后返回视频列表
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    throw new Error(result.msg || '删除失败');
+                }
+            } catch (error) {
+                showMessage('视频删除失败: ' + error.message, true);
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = '删除视频';
+            }
+        }
+
+        // 加载弹幕
+        async function loadDanmus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/danmus?video_id=${videoId}`);
+                const { code, data } = await response.json();
+                
+                if (code === 200) {
+                    danmus = data;
+                    const video = document.getElementById('videoPlayer');
+                    // 监听视频时间更新，显示对应弹幕
+                    video.removeEventListener('timeupdate', showDanmus);
+                    video.addEventListener('timeupdate', showDanmus);
+                    // 监听视频暂停和播放事件，控制弹幕动画
+                    video.removeEventListener('pause', pauseDanmus);
+                    video.addEventListener('pause', pauseDanmus);
+                    video.removeEventListener('play', resumeDanmus);
+                    video.addEventListener('play', resumeDanmus);
+                    // 监听视频进度跳转事件，更新弹幕显示
+                    video.removeEventListener('seeked', onSeeked);
+                    video.addEventListener('seeked', onSeeked);
+                    
+                    // 添加视频结束事件监听，清空弹幕容器
+                    video.removeEventListener('ended', clearAllDanmus);
+                    video.addEventListener('ended', clearAllDanmus);
+                }
+            } catch (error) {
+                console.error('弹幕加载失败:', error);
+                showMessage('弹幕加载失败', true);
+            }
+        }
+
+        // 显示弹幕
+        function showDanmus() {
+            const video = document.getElementById('videoPlayer');
+            const currentTime = video.currentTime;
+            const container = document.getElementById('danmuContainer');
+            
+            // 显示当前时间点的弹幕（不清除旧弹幕，让它们自然消失）
+            danmus.forEach(danmu => {
+                // 允许有一定的时间误差，不使用displayed标记，确保回退时能重新显示
+                if (Math.abs(danmu.time - currentTime) < 0.5) {
+                    // 检查是否已经有这个弹幕正在显示
+                    const existingDanmu = document.querySelector(`[data-danmu-id="${danmu.id || 'temp_' + Date.now()}"]`);
+                    if (!existingDanmu) {
+                        showDanmuItem(danmu);
+                    }
+                }
+            });
+        }
+
+        // 弹幕行管理
+        let danmuLines = [];
+        const MAX_LINES = 5; // 最多5行弹幕
+        const LINE_HEIGHT = 20; // 每行高度百分比
+        
+        // 重置弹幕行状态
+        function resetDanmuLines() {
+            danmuLines = [];
+            for (let i = 0; i < MAX_LINES; i++) {
+                danmuLines.push({
+                    top: i * LINE_HEIGHT + 5, // 5% 的顶部边距，从顶部开始排列
+                    currentLength: 0, // 当前行已使用的长度
+                    activeDanmus: [] // 当前行活跃的弹幕
+                });
+            }
+        }
+        
+        // 初始化弹幕行
+        resetDanmuLines();
+        
+        // 计算弹幕文本的宽度
+        function calculateDanmuWidth(danmuElement) {
+            // 创建一个临时元素用于测量
+            const tempElement = document.createElement('div');
+            tempElement.style.position = 'absolute';
+            tempElement.style.visibility = 'hidden';
+            tempElement.style.whiteSpace = 'nowrap';
+            tempElement.style.fontSize = getComputedStyle(danmuElement).fontSize;
+            tempElement.style.fontFamily = getComputedStyle(danmuElement).fontFamily;
+            tempElement.textContent = danmuElement.textContent;
+            document.body.appendChild(tempElement);
+            
+            const width = tempElement.offsetWidth;
+            document.body.removeChild(tempElement);
+            return width;
+        }
+        
+        // 查找合适的行来放置弹幕
+        function findSuitableLine(danmuWidth) {
+            const container = document.getElementById('danmuContainer');
+            const containerWidth = container.offsetWidth;
+            const safetyMargin = 100; // 安全边距，确保弹幕不会太拥挤
+            const danmuSpacing = 30; // 弹幕之间的间隙宽度（像素）
+            
+            // 遍历所有行，找到第一个可以容纳新弹幕的行
+            for (let i = 0; i < danmuLines.length; i++) {
+                const line = danmuLines[i];
+                // 检查当前行剩余空间是否足够容纳新弹幕和间隙
+                const requiredSpace = line.currentLength > 0 ? 
+                    danmuWidth + danmuSpacing : 
+                    danmuWidth; // 如果是该行第一个弹幕，则不需要额外间隙
+                
+                if (line.currentLength + requiredSpace + safetyMargin < containerWidth) {
+                    return i;
+                }
+            }
+            
+            // 如果所有行都不够，返回第一行（会覆盖之前的弹幕）
+            return 0;
+        }
+        
+        // 显示单个弹幕
+        function showDanmuItem(danmu) {
+            const container = document.getElementById('danmuContainer');
+            const danmuElement = document.createElement('div');
+            danmuElement.className = 'danmu-item';
+            danmuElement.textContent = danmu.content;
+            danmuElement.style.color = danmu.color || '#fff';
+            
+            // 随机调整弹幕大小，增加视觉变化
+            const randomSize = 16 + Math.random() * 8; // 16px - 24px
+            danmuElement.style.fontSize = `${randomSize}px`;
+            
+            // 计算弹幕宽度
+            const danmuWidth = calculateDanmuWidth(danmuElement);
+            
+            // 查找合适的行
+            const lineIndex = findSuitableLine(danmuWidth);
+            const line = danmuLines[lineIndex];
+            
+            // 设置弹幕位置
+            danmuElement.style.top = `${line.top}%`;
+            
+            // 更新行的当前长度，包括弹幕之间的间隙
+            const danmuSpacing = 30; // 弹幕之间的间隙宽度（像素）
+            const addSpacing = line.currentLength > 0 ? danmuSpacing : 0;
+            line.currentLength += danmuWidth + addSpacing;
+            const danmuId = danmu.id || 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            line.activeDanmus.push(danmuId);
+            
+            // 为每个弹幕设置唯一标识
+            danmuElement.setAttribute('data-danmu-id', danmuId);
+            
+            // 添加动画结束事件监听，自动移除元素并释放行空间
+            danmuElement.addEventListener('animationend', function() {
+                if (danmuElement.parentNode) {
+                    danmuElement.parentNode.removeChild(danmuElement);
+                    
+                    // 释放该行的空间
+                    for (let i = 0; i < danmuLines.length; i++) {
+                        const line = danmuLines[i];
+                        const index = line.activeDanmus.indexOf(danmuId);
+                        if (index !== -1) {
+                            line.activeDanmus.splice(index, 1);
+                            // 重新计算行的当前长度（简化处理）
+                            if (line.activeDanmus.length === 0) {
+                                line.currentLength = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+            
+            container.appendChild(danmuElement);
+        }
+
+        // 暂停所有弹幕动画
+        function pauseDanmus() {
+            const danmuElements = document.querySelectorAll('.danmu-item');
+            danmuElements.forEach(element => {
+                // 暂停动画
+                element.style.animationPlayState = 'paused';
+            });
+        }
+
+        // 恢复所有弹幕动画
+        function resumeDanmus() {
+            const danmuElements = document.querySelectorAll('.danmu-item');
+            danmuElements.forEach(element => {
+                // 恢复动画
+                element.style.animationPlayState = 'running';
+            });
+        }
+        
+        // 清空弹幕容器
+        function clearAllDanmus() {
+            const container = document.getElementById('danmuContainer');
+            container.innerHTML = '';
+            
+            // 重置所有行状态
+            danmuLines.forEach(line => {
+                line.currentLength = 0;
+                line.activeDanmus = [];
+            });
+        }
+
+        // 当视频进度跳转时，清除当前弹幕并显示新位置的弹幕
+        function onSeeked() {
+            // 清除当前所有弹幕
+            const container = document.getElementById('danmuContainer');
+            container.innerHTML = '';
+            
+            // 重置弹幕行状态
+            resetDanmuLines();
+            
+            // 显示当前时间点的弹幕
+            showDanmus();
+            
+            // 如果视频是暂停状态，确保弹幕也是暂停的
+            const video = document.getElementById('videoPlayer');
+            if (video.paused) {
+                setTimeout(pauseDanmus, 10); // 延迟暂停，确保新弹幕已经开始动画
+            }
+        }
+
+        // 发送弹幕
+        async function sendDanmu() {
+            const input = document.getElementById('danmuInput');
+            const content = input.value.trim();
+            const sendBtn = document.querySelector('.danmu-send');
+            
+            if (!content) {
+                showMessage('弹幕内容不能为空', true);
+                return;
+            }
+            
+            try {
+                sendBtn.disabled = true;
+                sendBtn.textContent = '发送中...';
+                
+                const video = document.getElementById('videoPlayer');
+                const response = await fetch(`${API_BASE}/api/danmus`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        video_id: videoId,
+                        content: content,
+                        time: video.currentTime,
+                        color: '#fff'
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    input.value = '';
+                    showMessage('弹幕发送成功');
+                    
+                    // 创建新弹幕对象
+                    const newDanmu = {
+                        id: 'temp_' + Date.now(), // 临时ID
+                        content: content,
+                        time: video.currentTime,
+                        color: '#fff',
+                        created_at: new Date().toISOString()
+                    };
+                    
+                    // 添加到弹幕数组，确保回看时能显示
+                    danmus.push(newDanmu);
+                    
+                    // 立即显示新发送的弹幕
+                    showDanmuItem(newDanmu);
+                } else {
+                    throw new Error(result.msg);
+                }
+            } catch (error) {
+                showMessage('弹幕发送失败: ' + error.message, true);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+            }
+        }
+
+        // 加载评论
+        async function loadComments() {
+            try {
+                const response = await fetch(`${API_BASE}/api/comments?video_id=${videoId}`);
+                const { code, data } = await response.json();
+                
+                if (code === 200) {
+                    comments = data;
+                    renderComments();
+                }
+            } catch (error) {
+                console.error('评论加载失败:', error);
+                showMessage('评论加载失败', true);
+                document.getElementById('commentList').innerHTML = '<div class="empty-comments">评论加载失败</div>';
+            }
+        }
+
+        // 渲染评论
+        function renderComments() {
+            const container = document.getElementById('commentList');
+            
+            container.innerHTML = ''; // 清空容器
+            
+            if (comments.length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-comments';
+                emptyDiv.textContent = '暂无评论，快来发表第一条评论吧！';
+                container.appendChild(emptyDiv);
+                return;
+            }
+            
+            // 使用DOM方法创建评论元素，避免双重转义
+            comments.forEach(comment => {
+                const commentItem = document.createElement('div');
+                commentItem.className = 'comment-item';
+                
+                // 创建评论作者
+                const authorDiv = document.createElement('div');
+                authorDiv.className = 'comment-author';
+                authorDiv.style.fontWeight = 'bold';
+                authorDiv.style.color = '#00a1d6';
+                authorDiv.style.marginBottom = '0.3rem';
+                authorDiv.textContent = comment.nickname || '匿名用户';
+                commentItem.appendChild(authorDiv);
+                
+                // 创建评论内容
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'comment-content';
+                contentDiv.textContent = comment.content;
+                commentItem.appendChild(contentDiv);
+                
+                // 创建评论时间
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'comment-time';
+                timeDiv.textContent = new Date(comment.created_at).toLocaleString();
+                commentItem.appendChild(timeDiv);
+                
+                container.appendChild(commentItem);
+            });
+        }
+
+        // 检查登录状态
+        async function checkLoginStatus() {
+            try {
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/users/profile`, {
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    currentUser = result.data;
+                    updateAuthUI();
+                } else {
+                    currentUser = null;
+                    updateAuthUI();
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                currentUser = null;
+                updateAuthUI();
+            }
+        }
+        
+        // 更新认证UI
+        function updateAuthUI() {
+            const loginBtn = document.getElementById('loginBtn');
+            const userInfo = document.getElementById('userInfo');
+            
+            if (currentUser) {
+                // 确保登录按钮完全隐藏
+                if (loginBtn) {
+                    loginBtn.style.display = 'none';
+                    loginBtn.style.visibility = 'hidden';
+                }
+                if (userInfo) {
+                    // 添加nickname容错处理，确保显示有效的用户名
+                    const displayName = currentUser.nickname && currentUser.nickname.trim() !== '' 
+                        ? currentUser.nickname 
+                        : (currentUser.username || '用户');
+                    
+                    // 修复双重转义问题：使用DOM方法创建元素
+                    userInfo.innerHTML = '';
+                    userInfo.style.display = 'flex';
+                    userInfo.style.alignItems = 'center';
+                    userInfo.style.gap = '0.5rem';
+                    userInfo.style.fontWeight = 'bold';
+                    
+                    // 创建用户名元素
+                    const userNameSpan = document.createElement('span');
+                    userNameSpan.className = 'user-name';
+                    userNameSpan.textContent = displayName;
+                    userInfo.appendChild(userNameSpan);
+                    
+                    // 创建退出按钮
+                    const logoutBtn = document.createElement('button');
+                    logoutBtn.id = 'logoutBtn';
+                    logoutBtn.className = 'logout-btn';
+                    logoutBtn.textContent = '退出';
+                    userInfo.appendChild(logoutBtn);
+                    
+                    // 移除之前可能存在的事件监听器，避免重复绑定
+                    if (logoutBtn) {
+                        // 添加样式使退出按钮更明显
+                        logoutBtn.style.backgroundColor = '#27ae60';
+                        logoutBtn.style.color = '#ffffff';
+                        logoutBtn.style.padding = '0.5rem 1rem';
+                        logoutBtn.style.border = 'none';
+                        logoutBtn.style.borderRadius = '6px';
+                        logoutBtn.style.cursor = 'pointer';
+                        logoutBtn.style.fontWeight = 'bold';
+                        
+                        // 使用事件委托或移除旧监听器
+                        const newLogoutBtn = logoutBtn.cloneNode(true);
+                        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+                        newLogoutBtn.addEventListener('click', logout);
+                    }
+                }
+            } else {
+                // 未登录状态下显示登录按钮
+                if (loginBtn) {
+                    loginBtn.style.display = 'block';
+                    loginBtn.style.visibility = 'visible';
+                }
+                if (userInfo) {
+                    userInfo.style.display = 'none';
+                }
+            }
+        }
+        
+        // 切换认证模态框
+        function toggleAuthModal(show, tab = 'login') {
+            const modal = document.getElementById('authModal');
+            const overlay = document.getElementById('overlay');
+            if (!modal || !overlay) return;
+            
+            if (show !== undefined) {
+                modal.style.display = show ? 'flex' : 'none';
+                overlay.style.display = show ? 'block' : 'none';
+                if (show) {
+                    switchAuthTab(tab);
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            } else {
+                const isVisible = modal.style.display === 'flex';
+                modal.style.display = isVisible ? 'none' : 'flex';
+                overlay.style.display = isVisible ? 'none' : 'block';
+                document.body.style.overflow = isVisible ? '' : 'hidden';
+            }
+        }
+        
+        // 页面加载完成后添加遮罩层点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.getElementById('overlay');
+            if (overlay) {
+                overlay.addEventListener('click', (e) => {
+                    // 只有点击遮罩层本身时才关闭模态框
+                    if (e.target === overlay) {
+                        toggleAuthModal(false);
+                    }
+                });
+            }
+        });
+        
+        // 切换登录/注册标签
+        function switchAuthTab(tabName) {
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (!loginTab || !registerTab || !loginForm || !registerForm) return;
+            
+            if (tabName === 'login') {
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            } else {
+                registerTab.classList.add('active');
+                loginTab.classList.remove('active');
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+            }
+        }
+        
+        // 获取Cookie
+        function getCookie(name) {
+            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            if (match) return match[2];
+            return null;
+        }
+        
+        // 设置Cookie
+        function setCookie(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+        }
+        
+        // 登录表单提交
+        async function submitLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const submitBtn = document.getElementById('loginSubmit');
+            
+            if (!username || !password) {
+                showMessage('用户名和密码不能为空', true);
+                return;
+            }
+            
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '登录中...';
+                
+                const response = await fetch(`${API_BASE}/api/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    // 保存token到localStorage
+                    if (result.data.token) {
+                        localStorage.setItem('authToken', result.data.token);
+                    }
+                    showMessage('登录成功');
+                    toggleAuthModal(false);
+                    await checkLoginStatus();
+                } else {
+                    throw new Error(result.msg || '登录失败');
+                }
+            } catch (error) {
+                showMessage('登录失败: ' + error.message, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登录';
+            }
+        }
+        
+        // 注册表单提交
+        async function submitRegister() {
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value.trim();
+            const nickname = document.getElementById('registerNickname').value.trim();
+            const submitBtn = document.getElementById('registerSubmit');
+            
+            if (!username || !password) {
+                showMessage('用户名和密码不能为空', true);
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('密码长度至少为6位', true);
+                return;
+            }
+            
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '注册中...';
+                
+                const response = await fetch(`${API_BASE}/api/users/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password, nickname })
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    showMessage('注册成功，即将自动登录');
+                    setTimeout(() => {
+                        toggleAuthModal(false);
+                        checkLoginStatus();
+                    }, 1500);
+                } else {
+                    throw new Error(result.msg || '注册失败');
+                }
+            } catch (error) {
+                showMessage('注册失败: ' + error.message, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '注册';
+            }
+        }
+        
+        // 退出登录
+        async function logout() {
+            try {
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/users/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                // 清除localStorage中的token
+                localStorage.removeItem('authToken');
+                currentUser = null;
+                updateAuthUI();
+                showMessage('已退出登录');
+            } catch (error) {
+                // 无论如何都清除token
+                localStorage.removeItem('authToken');
+                currentUser = null;
+                updateAuthUI();
+                showMessage('已退出登录');
+            }
+        }
+        
+        // 提交评论
+        async function submitComment() {
+            const input = document.getElementById('commentInput');
+            const content = input.value.trim();
+            const submitBtn = document.querySelector('.comment-submit');
+            
+            // 检查用户是否登录
+            if (!currentUser) {
+                showMessage('请先登录后再评论');
+                toggleAuthModal(true, 'login');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('评论内容不能为空', true);
+                return;
+            }
+            
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '发布中...';
+                
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/comments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    },
+                    body: JSON.stringify({
+                        video_id: videoId,
+                        content: content
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    input.value = '';
+                    showMessage('评论发布成功');
+                    // 重新加载评论
+                    await loadComments();
+                } else {
+                    throw new Error(result.msg);
+                }
+            } catch (error) {
+                showMessage('评论发布失败: ' + error.message, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '评论';
+            }
+        }
+        
+        // 提交弹幕
+        async function sendDanmu() {
+            const input = document.getElementById('danmuInput');
+            const content = input.value.trim();
+            const sendBtn = document.querySelector('.danmu-send');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            // 检查用户是否登录
+            if (!currentUser) {
+                showMessage('请先登录后再发送弹幕');
+                toggleAuthModal(true, 'login');
+                return;
+            }
+            
+            if (!content || content.length > 50) {
+                showMessage('弹幕内容不能为空且不超过50个字符', true);
+                return;
+            }
+            
+            try {
+                sendBtn.disabled = true;
+                sendBtn.textContent = '发送中...';
+                
+                const time = videoPlayer.currentTime;
+                
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/danmus`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    },
+                    body: JSON.stringify({
+                        video_id: videoId,
+                        content: content,
+                        time: time
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    input.value = '';
+                    showMessage('弹幕发送成功');
+                    
+                    // 立即显示新发送的弹幕
+                    const newDanmu = {
+                        id: ++danmuIdCounter,
+                        content: content,
+                        time: time,
+                        color: '#fff',
+                        created_at: new Date().toISOString()
+                    };
+                    danmus.push(newDanmu);
+                    showDanmuItem(newDanmu);
+                } else {
+                    throw new Error(result.msg);
+                }
+            } catch (error) {
+                showMessage('弹幕发送失败: ' + error.message, true);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+            }
+        }
+
+        // 显示消息提示
+        function showMessage(text, isError = false) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = isError ? 'message error' : 'message';
+            message.style.display = 'block';
+            
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+        }
+
+        // HTML转义函数，防止XSS攻击
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            // 初始化播放器
+            initPlayer();
+            
+            // 立即检查登录状态，确保UI正确显示
+            checkLoginStatus();
+            
+            // 添加模态框相关事件监听
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            
+            if (loginTab) loginTab.addEventListener('click', function() { switchAuthTab('login'); });
+            if (registerTab) registerTab.addEventListener('click', function() { switchAuthTab('register'); });
+        });
+        
+        // 监听视频错误事件
+        document.getElementById('videoPlayer').addEventListener('error', function(e) {
+            showMessage('视频播放错误', true);
+        });
+        
+        // 监听视频暂停事件（额外添加一个，确保事件被捕获）
+        document.getElementById('videoPlayer').addEventListener('pause', pauseDanmus);
+    </script>
+</body>
+</html>

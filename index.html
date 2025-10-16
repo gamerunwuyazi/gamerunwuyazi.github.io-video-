@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频分享平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        .header {
+            background: #00a1d6;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .upload-btn {
+            background: #fff;
+            color: #00a1d6;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .upload-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,161,214,0.3);
+        }
+
+        .video-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .video-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .video-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .video-cover {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-bottom: 2px solid #eee;
+        }
+
+        .video-info {
+            padding: 1rem;
+        }
+
+        .video-info h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-info p {
+            color: #666;
+            font-size: 0.9rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .upload-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 500px;
+            z-index: 2000;
+            display: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .submit-btn {
+            background: #00a1d6;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: #008cc3;
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .cancel-btn {
+            background: #f5f5f5;
+            color: #666;
+            padding: 0.8rem 1.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .cancel-btn:hover {
+            background: #e8e8e8;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            z-index: 5;
+        }
+
+        .video-card:hover .delete-btn {
+            display: flex;
+        }
+
+        .delete-btn:hover {
+            background: rgba(255, 0, 0, 0.9);
+        }
+
+        .delete-confirm {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 400px;
+            z-index: 2500;
+            display: none;
+        }
+        
+        .auth-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ecf0f3;
+            padding: 2rem;
+            border-radius: 1rem;
+            z-index: 2001;
+            min-width: 400px;
+            display: none;
+            box-shadow: 
+                6px 6px 12px #d1d9e6,
+                -6px -6px 12px #ffffff;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            padding: 0.8rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        
+        .auth-tab.active {
+            color: #333;
+            font-weight: 600;
+            background: white;
+            box-shadow: inset 2px 2px 5px #d1d9e6,
+                        inset -2px -2px 5px #ffffff;
+        }
+        
+        .auth-form {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: inset 2px 2px 5px #d1d9e6,
+                        inset -2px -2px 5px #ffffff;
+        }
+        
+        .auth-form h3 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            color: #333;
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 0.8rem;
+            margin: 1rem 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            display: none;
+            cursor: pointer;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 3000;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+
+        .message.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .video-list {
+                padding: 1rem;
+                gap: 1rem;
+            }
+            
+            .header {
+                padding: 1rem;
+            }
+            
+            .upload-modal {
+                width: 95%;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    <div class="message" id="message"></div>
+    
+    <header class="header">
+        <h1>视频分享平台</h1>
+        <div style="display: flex; gap: 1rem;">
+            <button id="loginBtn" class="upload-btn" onclick="toggleAuthModal('login')">登录</button>
+            <button class="upload-btn" onclick="toggleUpload(true)">上传视频</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="video-list" id="videoList"></div>
+
+        <div class="upload-modal" id="uploadModal">
+            <h2>上传新视频</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div style="margin-bottom: 1rem;">
+                    <input type="text" name="title" placeholder="视频标题" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <textarea name="description" placeholder="视频描述" style="width: 100%; height: 100px; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <input type="file" name="cover" accept="image/*" required>
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <input type="file" name="video" accept="video/*" required>
+                </div>
+                <div style="margin-bottom: 1rem; display: none;" id="progressContainer">
+                    <div style="width: 100%; height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden;">
+                        <div id="progressBar" style="height: 100%; width: 0%; background-color: #00a1d6; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="text-align: center; margin-top: 5px; font-size: 0.9rem; color: #666;" id="progressText">0%</div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="submit-btn" onclick="submitForm()">提交</button>
+                    <button type="button" class="cancel-btn" onclick="toggleUpload(false)">取消</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="delete-confirm" id="deleteConfirm">
+            <h3>确认删除</h3>
+            <p>请输入删除密码：</p>
+            <input type="password" class="password-input" id="deletePassword">
+            <div class="modal-actions">
+                <button type="button" class="submit-btn" onclick="confirmDelete()">确认</button>
+                <button type="button" class="cancel-btn" onclick="toggleDeleteConfirm(false)">取消</button>
+            </div>
+        </div>
+
+        <!-- 登录/注册模态框 -->
+        <div class="auth-modal" id="authModal">
+            <div class="auth-tabs">
+                <button id="loginTab" class="auth-tab" onclick="switchAuthTab('login')">登录</button>
+                <button id="registerTab" class="auth-tab" onclick="switchAuthTab('register')">注册</button>
+            </div>
+            
+            <!-- 登录表单 -->
+            <div id="loginForm" class="auth-form">
+                <h3>用户登录</h3>
+                <div style="margin-bottom: 1rem;">
+                    <input type="text" id="loginUsername" placeholder="用户名" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <input type="password" id="loginPassword" placeholder="密码" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="submit-btn" onclick="submitLogin()">登录</button>
+                    <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+                </div>
+            </div>
+            
+            <!-- 注册表单 -->
+            <div id="registerForm" class="auth-form" style="display: none;">
+                <h3>用户注册</h3>
+                <div style="margin-bottom: 1rem;">
+                    <input type="text" id="registerUsername" placeholder="用户名（4-20个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <input type="password" id="registerPassword" placeholder="密码（至少6个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <input type="text" id="registerNickname" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="submit-btn" onclick="submitRegister()">注册</button>
+                    <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 设置后端API基础URL为用户指定的地址
+        const API_BASE = 'http://152.136.175.209:3002';
+        const WS_BASE = 'ws://152.136.175.209:3002';
+        const DEFAULT_COVER = 'https://placehold.co/400x300?text=封面加载失败';
+        let currentDeleteVideoId = null;
+        let currentUserId = null;
+        let currentUser = null;
+        let ws = null;
+
+        // 视频播放跳转功能
+        function openVideo(videoId) {
+            window.location.href = `video-player.html?id=${videoId}`;
+        }
+
+        // 显示消息提示
+        function showMessage(text, isError = false) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = isError ? 'message error' : 'message';
+            message.style.display = 'block';
+            
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            try {
+                // 关闭现有的WebSocket连接（如果有）
+                if (ws) {
+                    ws.close();
+                }
+                
+                // 创建新的WebSocket连接
+                ws = new WebSocket(WS_BASE);
+                
+                // 连接打开时
+                ws.onopen = () => {
+                    console.log('WebSocket连接已建立');
+                };
+                
+                // 接收消息时
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        
+                        // 处理视频删除消息
+                        if (message.type === 'VIDEO_DELETED') {
+                            console.log('收到视频删除消息:', message.data.videoId);
+                            // 重新加载视频列表
+                            loadVideos();
+                        }
+                    } catch (error) {
+                        console.error('解析WebSocket消息失败:', error);
+                    }
+                };
+                
+                // 连接关闭时
+                ws.onclose = () => {
+                    console.log('WebSocket连接已关闭');
+                    // 尝试在3秒后重新连接
+                    setTimeout(initWebSocket, 3000);
+                };
+                
+                // 连接错误时
+                ws.onerror = (error) => {
+                    console.error('WebSocket错误:', error);
+                };
+            } catch (error) {
+                console.error('初始化WebSocket失败:', error);
+                // 尝试在3秒后重新连接
+                setTimeout(initWebSocket, 3000);
+            }
+        }
+
+        // 上传弹窗控制
+        function toggleUpload(show) {
+            if (show && !currentUser) {
+                showMessage('请先登录后再上传视频');
+                toggleAuthModal(true, 'login');
+                return;
+            }
+            
+            const modal = document.getElementById('uploadModal');
+            const overlay = document.getElementById('overlay');
+            
+            modal.style.display = show ? 'block' : 'none';
+            overlay.style.display = show ? 'block' : 'none';
+            
+            if (!show) {
+                document.getElementById('uploadForm').reset();
+            }
+        }
+
+        // 删除视频（不需要密码确认，与视频播放页逻辑一致）
+        function confirmDeleteVideo(videoId) {
+            if (confirm('确定要删除这个视频吗？此操作不可恢复，视频和封面文件将被永久删除。')) {
+                deleteVideo(videoId);
+            }
+        }
+        
+        // 执行删除视频的API调用
+        async function deleteVideo(videoId) {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/videos/${videoId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    showMessage('视频删除成功');
+                    // 不需要手动刷新，WebSocket会广播消息让所有客户端更新
+                } else {
+                    throw new Error(result.msg || '删除失败');
+                }
+            } catch (error) {
+                showMessage('视频删除失败: ' + error.message, true);
+            }
+        }
+
+        // 加载视频列表
+        async function loadVideos() {
+            try {
+                const response = await fetch(`${API_BASE}/api/videos`);
+                const { code, data } = await response.json();
+                
+                if (code !== 200) throw new Error('加载失败');
+                
+                const container = document.getElementById('videoList');
+                container.innerHTML = ''; // 清空容器
+                
+                if (data.length > 0) {
+                    // 使用DOM方法创建视频卡片，避免双重转义
+                    data.forEach(video => {
+                        // 创建视频卡片容器
+                        const card = document.createElement('div');
+                        card.className = 'video-card';
+                        card.onclick = () => openVideo(video.id);
+                        
+                        // 创建删除按钮
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-btn';
+                        deleteBtn.textContent = '×';
+                        deleteBtn.onclick = (e) => {
+                            confirmDeleteVideo(video.id);
+                            e.stopPropagation();
+                        };
+                        card.appendChild(deleteBtn);
+                        
+                        // 创建视频封面图片
+                        const img = document.createElement('img');
+                        img.src = video.cover_path;
+                        img.className = 'video-cover';
+                        img.onerror = function() { this.src = DEFAULT_COVER; };
+                        img.alt = video.title;
+                        card.appendChild(img);
+                        
+                        // 创建视频信息容器
+                        const infoDiv = document.createElement('div');
+                        infoDiv.className = 'video-info';
+                        
+                        // 添加视频标题
+                        const title = document.createElement('h3');
+                        title.textContent = video.title;
+                        infoDiv.appendChild(title);
+                        
+                        // 添加视频描述
+                        const desc = document.createElement('p');
+                        desc.textContent = video.description || '暂无描述';
+                        infoDiv.appendChild(desc);
+                        
+                        // 添加上传者信息
+                        const uploader = document.createElement('p');
+                        uploader.style.fontSize = '0.8rem';
+                        uploader.style.color = '#00a1d6';
+                        uploader.style.fontWeight = 'bold';
+                        uploader.style.marginTop = '0.5rem';
+                        uploader.textContent = video.nickname || '匿名用户';
+                        infoDiv.appendChild(uploader);
+                        
+                        card.appendChild(infoDiv);
+                        container.appendChild(card);
+                    });
+                } else {
+                    // 显示空状态
+                    const emptyText = document.createElement('p');
+                    emptyText.style.textAlign = 'center';
+                    emptyText.style.color = '#666';
+                    emptyText.style.width = '100%';
+                    emptyText.textContent = '暂无视频内容';
+                    container.appendChild(emptyText);
+                }
+            } catch (error) {
+                showMessage('加载视频列表失败: ' + error.message, true);
+            }
+        }
+        
+        // 检查用户登录状态
+        async function checkLoginStatus() {
+            try {
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/users/current`, {
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.code === 200 && data.data) {
+                    currentUser = data.data;
+                    currentUserId = data.data.id; // 确保currentUserId也被设置
+                    updateAuthUI();
+                } else {
+                    currentUser = null;
+                    currentUserId = null;
+                    updateAuthUI();
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                // 错误情况下也重置状态
+                currentUser = null;
+                currentUserId = null;
+                updateAuthUI();
+            }
+        }
+        
+        // 提交登录表单
+        async function submitLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showMessage('请输入用户名和密码');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    // 保存token到localStorage
+                    if (data.data.token) {
+                        localStorage.setItem('authToken', data.data.token);
+                    }
+                    currentUser = data.data.user;
+                    currentUserId = data.data.user.id; // 确保currentUserId也被设置
+                    updateAuthUI();
+                    toggleAuthModal(false);
+                    showMessage('登录成功');
+                } else {
+                    showMessage(data.msg || '登录失败');
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                showMessage('登录失败，请重试');
+            }
+        }
+        
+        // 提交注册表单
+        async function submitRegister() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const nickname = document.getElementById('registerNickname').value;
+            
+            if (!username || !password || !nickname) {
+                showMessage('请填写所有必填字段');
+                return;
+            }
+            
+            if (username.length < 4 || username.length > 20) {
+                showMessage('用户名长度应为4-20个字符');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('密码长度至少为6个字符');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/users/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password, nickname })
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    // 注册成功后设置cookie并切换到登录标签
+                    setCookie('hasRegistered', 'true');
+                    switchAuthTab('login');
+                    showMessage('注册成功，请登录');
+                } else {
+                    showMessage(data.msg || '注册失败');
+                }
+            } catch (error) {
+                console.error('注册失败:', error);
+                showMessage('注册失败，请重试');
+            }
+        }
+        
+        // 退出登录
+        async function logout() {
+            try {
+                // 从localStorage获取token
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/users/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const data = await response.json();
+                
+                // 清除localStorage中的token
+                localStorage.removeItem('authToken');
+                currentUser = null;
+                updateAuthUI();
+                
+                if (data.code === 200) {
+                    showMessage('已退出登录');
+                } else {
+                    showMessage('已退出登录');
+                }
+            } catch (error) {
+                console.error('退出登录失败:', error);
+                // 无论如何都清除token
+                localStorage.removeItem('authToken');
+                currentUser = null;
+                updateAuthUI();
+                showMessage('已退出登录');
+            }
+        }
+        
+        // 更新认证相关UI
+        function updateAuthUI() {
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (currentUser) {
+                // 添加nickname容错处理，确保显示用户名而不是undefined
+                loginBtn.textContent = `退出登录`;
+                loginBtn.onclick = () => toggleAuthModal('logout');
+                // 修改为更明显的样式：白色文字在绿色背景上
+                loginBtn.style.backgroundColor = '#27ae60';
+                loginBtn.style.color = '#ffffff';
+                loginBtn.style.fontWeight = 'bold';
+            } else {
+                loginBtn.textContent = '登录';
+                loginBtn.onclick = () => {
+                    // 根据是否有注册信息的cookie决定默认标签
+                    const hasRegistered = getCookie('hasRegistered') === 'true';
+                    toggleAuthModal(hasRegistered ? 'login' : 'login');
+                };
+                // 设置醒目的登录按钮样式
+                loginBtn.style.backgroundColor = '#27ae60'; // 绿色背景
+                loginBtn.style.color = '#ffffff'; // 白色文字
+                loginBtn.style.fontWeight = 'bold'; // 粗体
+                loginBtn.style.boxShadow = '0 2px 8px rgba(39, 174, 96, 0.3)'; // 添加绿色阴影
+                loginBtn.style.transition = 'all 0.3s ease'; // 添加过渡效果
+            }
+        }
+        
+        // 切换认证模态框显示
+        function toggleAuthModal(show, defaultTab = 'login') {
+            const authModal = document.getElementById('authModal');
+            const overlay = document.getElementById('overlay');
+            
+            if (show === 'logout') {
+                // 显示登出确认
+                if (confirm(`确定要退出登录吗，${currentUser.nickname}？`)) {
+                    logout();
+                }
+                return;
+            }
+            
+            authModal.style.display = show ? 'block' : 'none';
+            overlay.style.display = show ? 'block' : 'none';
+            
+            if (show) {
+                // 切换到默认标签
+                switchAuthTab(defaultTab);
+            }
+        }
+        
+        // DOM加载完成后添加事件监听器
+        document.addEventListener('DOMContentLoaded', () => {
+            // 为遮罩层添加点击事件，点击时关闭认证模态框
+            const overlay = document.getElementById('overlay');
+            if (overlay) {
+                overlay.addEventListener('click', (e) => {
+                    // 确保点击的是遮罩层本身，而不是其中的模态框
+                    if (e.target === overlay) {
+                        toggleAuthModal(false);
+                        toggleUpload(false);
+                    }
+                });
+            }
+            
+            // 初始化WebSocket连接
+            initWebSocket();
+        });
+        
+        // 切换登录/注册标签
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            
+            if (tab === 'login') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
+            }
+        }
+        
+        // 获取Cookie
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+        
+        // 设置Cookie
+        function setCookie(name, value, days = 30) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            const expires = `expires=${date.toUTCString()}`;
+            document.cookie = `${name}=${value};${expires};path=/`;
+        }
+
+        // 提交表单（带进度条）
+        function submitForm() {
+            const form = document.getElementById('uploadForm');
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('.submit-btn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            // 获取token
+            const token = localStorage.getItem('authToken');
+            
+            // 重置进度条
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            progressContainer.style.display = 'block';
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '上传中...';
+            
+            // 使用XMLHttpRequest来监控上传进度
+            const xhr = new XMLHttpRequest();
+            
+            xhr.open('POST', `${API_BASE}/api/videos`);
+            
+            // 设置认证头
+            if (token) {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            }
+            
+            // 监控上传进度
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                    progressText.textContent = Math.round(percentComplete) + '%';
+                }
+            });
+            
+            // 完成时的处理
+            xhr.addEventListener('load', function() {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (xhr.status === 200 && result.code === 200) {
+                        toggleUpload(false);
+                        loadVideos();
+                        showMessage('上传成功');
+                    } else {
+                        throw new Error(result.msg || '上传失败');
+                    }
+                } catch (error) {
+                    showMessage('上传失败: ' + error.message, true);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '提交';
+                    progressContainer.style.display = 'none';
+                }
+            });
+            
+            // 错误处理
+            xhr.addEventListener('error', function() {
+                showMessage('网络错误，请重试', true);
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交';
+                progressContainer.style.display = 'none';
+            });
+            
+            // 发送请求
+            xhr.send(formData);
+        }
+
+        // 确认删除视频
+        async function confirmDelete() {
+            if (!currentDeleteVideoId) return;
+            
+            const password = document.getElementById('deletePassword').value;
+            if (!password) {
+                showMessage('请输入密码', true);
+                return;
+            }
+            
+            try {
+                // 获取token
+                const token = localStorage.getItem('authToken');
+                
+                const response = await fetch(`${API_BASE}/api/videos/${currentDeleteVideoId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const result = await response.json();
+                if (result.code !== 200) throw new Error(result.msg);
+                
+                toggleDeleteConfirm(false);
+                await loadVideos();
+                showMessage('视频已删除');
+            } catch (error) {
+                showMessage('删除失败: ' + error.message, true);
+            }
+        }
+
+        // HTML转义函数，防止XSS攻击
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 初始化加载
+        window.addEventListener('DOMContentLoaded', () => {
+            loadVideos();
+            checkLoginStatus(); // 页面加载时检查登录状态
+        });
+        
+        // 点击遮罩层关闭弹窗
+        document.getElementById('overlay').addEventListener('click', function() {
+            toggleUpload(false);
+            toggleDeleteConfirm(false);
+        });
+    </script>
+</body>
+</html>
