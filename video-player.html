@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -27,26 +28,122 @@
             gap: 2rem;
         }
 
-        .video-section {
+        /* 自定义播放器容器 */
+        .custom-player {
             position: relative;
-            width: 100%;
-        }
-
-        #videoPlayer {
             width: 100%;
             height: 70vh;
             background: #000;
             border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-
+        
+        /* 自定义视频容器 */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+        
+        /* 弹幕容器样式 */
         .danmu-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 70vh;
+            height: 100%;
             pointer-events: none;
             overflow: hidden;
+            z-index: 9999; /* 确保在播放器上方 */
+            background: transparent;
+        }
+        
+        /* 弹幕参考容器 */
+        #danmuReferenceContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        
+        /* 自定义播放器全屏样式 */
+        .custom-player:fullscreen,
+        .custom-player:-webkit-full-screen,
+        .custom-player:-moz-full-screen,
+        .custom-player:-ms-fullscreen {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            margin: 0;
+            border-radius: 0;
+        }
+        
+        /* 全屏模式下视频包装器样式 */
+        :fullscreen .video-wrapper,
+        :-webkit-full-screen .video-wrapper,
+        :-moz-full-screen .video-wrapper,
+        :-ms-fullscreen .video-wrapper {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 全屏模式下弹幕容器样式 */
+        :fullscreen .danmu-container,
+        :-webkit-full-screen .danmu-container,
+        :-moz-full-screen .danmu-container,
+        :-ms-fullscreen .danmu-container {
+            width: 100%;
+            height: 100%;
+            z-index: 2147483647; /* 使用最大的z-index值确保在最上层 */
+        }
+        
+        /* 全屏模式下参考容器样式 */
+        :fullscreen #danmuReferenceContainer,
+        :-webkit-full-screen #danmuReferenceContainer,
+        :-moz-full-screen #danmuReferenceContainer,
+        :-ms-fullscreen #danmuReferenceContainer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 自定义全屏按钮 */
+        .custom-fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .custom-fullscreen-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
         }
 
         .danmu-item {
@@ -54,16 +151,15 @@
             white-space: nowrap;
             font-size: 20px;
             text-shadow: 1px 1px 2px #000;
-            animation: danmu-move 6s linear;
             opacity: 0.9;
             z-index: 10;
-            /* 确保弹幕从右侧完全进入视频区域 */
-            transform-origin: top right;
+            /* 使用left属性而不是transform，确保位置计算准确 */
+            animation: danmu-move 6s linear;
         }
 
         @keyframes danmu-move {
             0% { 
-                transform: translateX(calc(100% + 1300px)); /* 从屏幕外右侧500px处开始 */
+                left: 100%; /* 从容器右侧开始，100%表示容器右边缘 */
                 opacity: 0; /* 开始时透明 */
             }
             5% { 
@@ -73,7 +169,7 @@
                 opacity: 0.9; /* 离开视野前保持显示 */
             }
             100% { 
-                transform: translateX(-130%); 
+                left: -100%; /* 移动到容器左侧外，确保完全离开 */
                 opacity: 0; /* 完全离开后透明 */
             }
         }
@@ -266,6 +362,32 @@
             flex-direction: column;
         }
         
+        /* 统一的关闭按钮样式 */
+        .auth-modal .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.05);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .auth-modal .close-btn:hover {
+            background-color: #f0f0f0;
+            color: #333;
+            transform: scale(1.1);
+        }
+        
         /* 用户信息样式 */
         .user-info {
             display: flex;
@@ -407,11 +529,7 @@
                 gap: 1rem;
             }
             
-            #videoPlayer {
-                height: 50vh;
-            }
-            
-            .danmu-container {
+            .custom-player {
                 height: 50vh;
             }
             
@@ -433,6 +551,13 @@
                 top: 10px;
                 left: 10px;
                 padding: 8px 16px;
+            }
+            
+            .custom-fullscreen-btn {
+                width: 35px;
+                height: 35px;
+                bottom: 15px;
+                right: 15px;
             }
         }
 
@@ -462,14 +587,33 @@
     </div>
     
     <div class="player-container">
-        <div class="video-section">
-            <video id="videoPlayer" controls autoplay>
-                <source src="" type="video/mp4">
-                您的浏览器不支持视频播放
-            </video>
+        <!-- 自定义播放器 -->
+        <div class="custom-player" id="customPlayer">
+            <div class="video-wrapper">
+                <!-- 视频元素 - 禁用默认全屏按钮 -->
+                <video id="videoPlayer" controls controlsList="nofullscreen" autoplay>
+                    <source src="" type="video/mp4">
+                    您的浏览器不支持视频播放
+                </video>
+                
+                <!-- 弹幕起始位置参考容器 -->
+                <div id="danmuReferenceContainer"></div>
+                
+                <!-- 弹幕容器 -->
+                <div class="danmu-container" id="danmuContainer"></div>
+                
+                <!-- 自定义全屏按钮 -->
+                <button class="custom-fullscreen-btn" id="customFullscreenBtn" onclick="toggleCustomFullscreen()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+            </div>
             
-            <div class="danmu-container" id="danmuContainer"></div>
-            
+            <!-- 弹幕控制区域 -->
             <div class="danmu-controls">
                 <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕...">
                 <button class="danmu-send" onclick="sendDanmu()">发送</button>
@@ -504,6 +648,7 @@
 
     <!-- 登录/注册模态框 -->
     <div class="auth-modal" id="authModal">
+        <button class="close-btn" onclick="toggleAuthModal(false)">&times;</button>
         <div class="auth-tabs">
             <button id="loginTab" class="auth-tab" onclick="switchAuthTab('login')">登录</button>
             <button id="registerTab" class="auth-tab" onclick="switchAuthTab('register')">注册</button>
@@ -519,8 +664,7 @@
                 <input type="password" id="loginPassword" placeholder="密码" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="modal-actions">
-                <button type="button" class="submit-btn" onclick="submitLogin()">登录</button>
-                <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+                <button type="button" id="loginSubmit" class="submit-btn" onclick="submitLogin()">登录</button>
             </div>
         </div>
         
@@ -537,8 +681,7 @@
                 <input type="text" id="registerNickname" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="modal-actions">
-                <button type="button" class="submit-btn" onclick="submitRegister()">注册</button>
-                <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
+                <button type="button" id="registerSubmit" class="submit-btn" onclick="submitRegister()">注册</button>
             </div>
         </div>
     </div>
@@ -563,6 +706,53 @@
             
             // 检查用户登录状态
             await checkLoginStatus();
+            
+            // 添加全屏事件监听器
+            const customPlayer = document.getElementById('customPlayer');
+            const danmuContainer = document.getElementById('danmuContainer');
+            
+            // 监听全屏变化事件
+            document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.addEventListener('fullscreenchange', handleFullscreenChange);
+            document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+            
+            // 全屏变化处理函数
+            function handleFullscreenChange() {
+                const isFullscreen = !!document.fullscreenElement || 
+                                   !!document.webkitFullscreenElement || 
+                                   !!document.mozFullScreenElement || 
+                                   !!document.msFullscreenElement;
+                
+                // 更新全屏按钮图标
+                updateFullscreenButtonIcon(isFullscreen);
+                
+                // 更新所有现有弹幕的动画
+                const danmuElements = document.querySelectorAll('.danmu-item');
+                danmuElements.forEach(element => {
+                    // 保留当前动画进度
+                    const computedStyle = window.getComputedStyle(element);
+                    const animationDuration = parseFloat(computedStyle.animationDuration) || 6;
+                    const animationDelay = parseFloat(computedStyle.animationDelay) || 0;
+                    const animationName = computedStyle.animationName;
+                    const animationPlayState = computedStyle.animationPlayState;
+                    
+                    // 设置z-index确保在最上层
+                    element.style.zIndex = '2147483647';
+                    
+                    // 重新应用动画以适应新容器
+                    element.style.animation = 'none';
+                    element.offsetHeight; // 触发重排
+                    element.style.animation = `${animationName} ${animationDuration}s linear ${animationDelay}s`;
+                    element.style.animationPlayState = animationPlayState;
+                });
+            }
+            
+            // 确保视频在加载完成前弹幕不移动
+            let videoReady = false;
+            videoPlayer.addEventListener('canplay', function() {
+                videoReady = true;
+            });
 
             try {
                 // 显示加载状态
@@ -769,8 +959,11 @@
         
         // 查找合适的行来放置弹幕
         function findSuitableLine(danmuWidth) {
+            // 使用参考容器来获取准确的容器宽度
+            const referenceContainer = document.getElementById('danmuReferenceContainer');
             const container = document.getElementById('danmuContainer');
-            const containerWidth = container.offsetWidth;
+            // 优先使用参考容器的宽度，如果没有则回退到弹幕容器
+            const containerWidth = referenceContainer ? referenceContainer.offsetWidth : container.offsetWidth;
             const safetyMargin = 100; // 安全边距，确保弹幕不会太拥挤
             const danmuSpacing = 30; // 弹幕之间的间隙宽度（像素）
             
@@ -789,6 +982,64 @@
             
             // 如果所有行都不够，返回第一行（会覆盖之前的弹幕）
             return 0;
+        }
+        
+        // 自定义全屏切换函数
+        function toggleCustomFullscreen() {
+            const customPlayer = document.getElementById('customPlayer');
+            
+            if (!document.fullscreenElement && 
+                !document.webkitFullscreenElement && 
+                !document.mozFullScreenElement && 
+                !document.msFullscreenElement) {
+                // 进入全屏
+                if (customPlayer.requestFullscreen) {
+                    customPlayer.requestFullscreen();
+                } else if (customPlayer.webkitRequestFullscreen) {
+                    customPlayer.webkitRequestFullscreen();
+                } else if (customPlayer.mozRequestFullScreen) {
+                    customPlayer.mozRequestFullScreen();
+                } else if (customPlayer.msRequestFullscreen) {
+                    customPlayer.msRequestFullscreen();
+                }
+            } else {
+                // 退出全屏
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        // 更新全屏按钮图标
+        function updateFullscreenButtonIcon(isFullscreen) {
+            const fullscreenBtn = document.getElementById('customFullscreenBtn');
+            if (isFullscreen) {
+                // 全屏状态下显示退出全屏图标
+                fullscreenBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 3 3 3 3 9"></polyline>
+                        <polyline points="15 21 21 21 21 15"></polyline>
+                        <line x1="3" y1="9" x2="10" y2="16"></line>
+                        <line x1="21" y1="15" x2="14" y2="8"></line>
+                    </svg>
+                `;
+            } else {
+                // 非全屏状态下显示进入全屏图标
+                fullscreenBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                `;
+            }
         }
         
         // 显示单个弹幕
@@ -844,7 +1095,64 @@
                 }
             });
             
+            // 确保视频准备好后再播放弹幕动画
             container.appendChild(danmuElement);
+            
+            // 如果视频还没准备好，暂停弹幕动画
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer.readyState < 2) { // HAVE_CURRENT_DATA
+                danmuElement.style.animationPlayState = 'paused';
+                
+                // 监听视频可以播放事件，恢复弹幕动画
+                const resumeAnimation = function() {
+                    danmuElement.style.animationPlayState = 'running';
+                    videoPlayer.removeEventListener('canplay', resumeAnimation);
+                };
+                videoPlayer.addEventListener('canplay', resumeAnimation);
+            }
+            
+            // 确保弹幕在全屏模式下显示正确
+            const updateForFullscreen = function() {
+                const isFullscreen = !!document.fullscreenElement || 
+                                   !!document.webkitFullscreenElement || 
+                                   !!document.mozFullScreenElement || 
+                                   !!document.msFullscreenElement;
+                
+                if (danmuElement.parentNode) {
+                    // 无论是否全屏，都设置为最高z-index
+                    danmuElement.style.zIndex = '2147483647';
+                    danmuElement.style.pointerEvents = 'none';
+                    
+                    // 重新应用动画以适应容器大小变化
+                    const computedStyle = window.getComputedStyle(danmuElement);
+                    const animationDuration = parseFloat(computedStyle.animationDuration) || 6;
+                    const animationDelay = parseFloat(computedStyle.animationDelay) || 0;
+                    const animationName = computedStyle.animationName;
+                    const animationPlayState = computedStyle.animationPlayState;
+                    
+                    // 临时移除动画并触发重排
+                    danmuElement.style.animation = 'none';
+                    danmuElement.offsetHeight; // 触发重排
+                    
+                    // 重新应用动画，确保使用left属性而非transform
+                    danmuElement.style.animation = `${animationName} ${animationDuration}s linear ${animationDelay}s`;
+                    danmuElement.style.animationPlayState = animationPlayState;
+                }
+            };
+            
+            // 添加全屏事件监听器
+            document.addEventListener('webkitfullscreenchange', updateForFullscreen);
+            document.addEventListener('mozfullscreenchange', updateForFullscreen);
+            document.addEventListener('fullscreenchange', updateForFullscreen);
+            document.addEventListener('MSFullscreenChange', updateForFullscreen);
+            
+            // 在弹幕动画结束时移除监听器
+            danmuElement.addEventListener('animationend', function() {
+                document.removeEventListener('webkitfullscreenchange', updateForFullscreen);
+                document.removeEventListener('mozfullscreenchange', updateForFullscreen);
+                document.removeEventListener('fullscreenchange', updateForFullscreen);
+                document.removeEventListener('MSFullscreenChange', updateForFullscreen);
+            });
         }
 
         // 暂停所有弹幕动画
@@ -1459,6 +1767,45 @@
         
         // 监听视频暂停事件（额外添加一个，确保事件被捕获）
         document.getElementById('videoPlayer').addEventListener('pause', pauseDanmus);
+        
+        // 监听视频准备好事件，确保弹幕在视频准备好后再开始移动
+        document.getElementById('videoPlayer').addEventListener('canplay', function() {
+            // 恢复所有被暂停的弹幕动画
+            const pausedDanmus = document.querySelectorAll('.danmu-item[style*="animation-play-state: paused"]');
+            pausedDanmus.forEach(element => {
+                element.style.animationPlayState = 'running';
+            });
+        });
+        
+        // 监听视频容器的全屏按钮点击事件
+        const videoContainer = document.querySelector('.video-section');
+        if (videoContainer) {
+            videoContainer.addEventListener('click', function(e) {
+                // 确保只有在点击全屏按钮时才处理
+                // 这里使用一个简单的检查，实际项目中可能需要更精确的判断
+                const isFullscreenButton = e.target.className.includes('fullscreen') || 
+                                         e.target.title && e.target.title.includes('全屏');
+                
+                if (isFullscreenButton || e.target === document.getElementById('videoPlayer')) {
+                    // 稍微延迟以确保全屏状态已更新
+                    setTimeout(() => {
+                        // 更新弹幕容器大小
+                        const danmuContainer = document.getElementById('danmuContainer');
+                        const isFullscreen = !!document.fullscreenElement || 
+                                           !!document.webkitFullscreenElement || 
+                                           !!document.mozFullScreenElement || 
+                                           !!document.msFullscreenElement;
+                        
+                        if (isFullscreen) {
+                            danmuContainer.style.height = '100%';
+                            danmuContainer.style.width = '100%';
+                            // 强制重排以确保样式更新
+                            danmuContainer.offsetHeight;
+                        }
+                    }, 100);
+                }
+            });
+        }
     </script>
 </body>
 </html>

@@ -5,17 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>视频分享平台</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f0f2f5;
-            color: #333;
-        }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                background: #f0f2f5;
+                color: #333;
+            }
+            
+            /* 拖放上传区域样式 */
+            .drop-area {
+                border: 2px dashed #ddd;
+                border-radius: 8px;
+                padding: 2rem;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-bottom: 1.5rem;
+                background-color: #fafafa;
+            }
+            
+            .drop-area:hover,
+            .drop-area.drag-over {
+                border-color: #00a1d6;
+                background-color: #f0f8ff;
+            }
+            
+            .drop-area .icon {
+                font-size: 3rem;
+                color: #999;
+                margin-bottom: 1rem;
+            }
+            
+            .drop-area:hover .icon,
+            .drop-area.drag-over .icon {
+                color: #00a1d6;
+            }
+            
+            .drop-area p {
+                margin: 0.5rem 0;
+                color: #666;
+            }
+            
+            .drop-area .file-info {
+                margin-top: 1rem;
+                padding: 0.5rem;
+                background: #f5f5f5;
+                border-radius: 4px;
+                font-size: 0.9rem;
+                text-align: left;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
+            .drop-area input[type="file"] {
+                display: none;
+            }
 
         .header {
             background: #00a1d6;
@@ -108,11 +158,42 @@
             background: white;
             padding: 2rem;
             border-radius: 10px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             width: 90%;
             max-width: 500px;
             z-index: 2000;
             display: none;
+        }
+        
+        /* 移除会覆盖固定定位的相对定位设置 */
+        
+        .upload-modal .close-btn,
+        .auth-modal .close-btn,
+        .delete-confirm .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.05);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .upload-modal .close-btn:hover,
+        .auth-modal .close-btn:hover,
+        .delete-confirm .close-btn:hover {
+            background-color: #f0f0f0;
+            color: #333;
+            transform: scale(1.1);
         }
 
         .modal-actions {
@@ -189,28 +270,31 @@
             background: white;
             padding: 2rem;
             border-radius: 10px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             width: 90%;
             max-width: 400px;
             z-index: 2500;
             display: none;
         }
         
+
+        
         .auth-modal {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: #ecf0f3;
+            background: white;
             padding: 2rem;
-            border-radius: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 450px;
             z-index: 2001;
-            min-width: 400px;
             display: none;
-            box-shadow: 
-                6px 6px 12px #d1d9e6,
-                -6px -6px 12px #ffffff;
         }
+        
+
         
         .auth-tabs {
             display: flex;
@@ -232,19 +316,13 @@
         }
         
         .auth-tab.active {
-            color: #333;
+            color: #00a1d6;
             font-weight: 600;
-            background: white;
-            box-shadow: inset 2px 2px 5px #d1d9e6,
-                        inset -2px -2px 5px #ffffff;
+            border-bottom: 3px solid #00a1d6;
         }
         
         .auth-form {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: inset 2px 2px 5px #d1d9e6,
-                        inset -2px -2px 5px #ffffff;
+            padding: 1.5rem 0;
         }
         
         .auth-form h3 {
@@ -335,19 +413,36 @@
         <div class="video-list" id="videoList"></div>
 
         <div class="upload-modal" id="uploadModal">
+            <button type="button" class="close-btn" onclick="toggleUpload(false)">×</button>
             <h2>上传新视频</h2>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div style="margin-bottom: 1rem;">
-                    <input type="text" name="title" placeholder="视频标题" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" name="title" placeholder="视频标题" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div style="margin-bottom: 1rem;">
                     <textarea name="description" placeholder="视频描述" style="width: 100%; height: 100px; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
                 </div>
-                <div style="margin-bottom: 1rem;">
-                    <input type="file" name="cover" accept="image/*" required>
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <input type="file" name="video" accept="video/*" required>
+                <!-- 拖放上传区域容器 - 水平排列 -->
+                <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                    <!-- 封面图片拖放上传区域 -->
+                    <div class="drop-area" id="coverDropArea" style="flex: 1; margin-bottom: 0;">
+                        <div class="icon">📷</div>
+                        <p>拖放封面图片到这里</p>
+                        <p>或者</p>
+                        <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择图片</button>
+                        <input type="file" name="cover" accept="image/*" id="coverFileInput">
+                        <div class="file-info" id="coverFileInfo">未选择文件</div>
+                    </div>
+                    
+                    <!-- 视频拖放上传区域 -->
+                    <div class="drop-area" id="videoDropArea" style="flex: 2; margin-bottom: 0;">
+                        <div class="icon">🎬</div>
+                        <p>拖放视频文件到这里</p>
+                        <p>或者</p>
+                        <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择视频</button>
+                        <input type="file" name="video" accept="video/*" id="videoFileInput">
+                        <div class="file-info" id="videoFileInfo">未选择文件</div>
+                    </div>
                 </div>
                 <div style="margin-bottom: 1rem; display: none;" id="progressContainer">
                     <div style="width: 100%; height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden;">
@@ -357,23 +452,22 @@
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="submit-btn" onclick="submitForm()">提交</button>
-                    <button type="button" class="cancel-btn" onclick="toggleUpload(false)">取消</button>
                 </div>
             </form>
         </div>
         
         <div class="delete-confirm" id="deleteConfirm">
+            <button type="button" class="close-btn" onclick="toggleDeleteConfirm(false)">×</button>
             <h3>确认删除</h3>
-            <p>请输入删除密码：</p>
-            <input type="password" class="password-input" id="deletePassword">
+            <p>确定要删除这个视频吗？此操作不可恢复。</p>
             <div class="modal-actions">
                 <button type="button" class="submit-btn" onclick="confirmDelete()">确认</button>
-                <button type="button" class="cancel-btn" onclick="toggleDeleteConfirm(false)">取消</button>
             </div>
         </div>
 
         <!-- 登录/注册模态框 -->
         <div class="auth-modal" id="authModal">
+            <button type="button" class="close-btn" onclick="toggleAuthModal(false)">×</button>
             <div class="auth-tabs">
                 <button id="loginTab" class="auth-tab" onclick="switchAuthTab('login')">登录</button>
                 <button id="registerTab" class="auth-tab" onclick="switchAuthTab('register')">注册</button>
@@ -383,14 +477,13 @@
             <div id="loginForm" class="auth-form">
                 <h3>用户登录</h3>
                 <div style="margin-bottom: 1rem;">
-                    <input type="text" id="loginUsername" placeholder="用户名" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="loginUsername" placeholder="用户名" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div style="margin-bottom: 1.5rem;">
-                    <input type="password" id="loginPassword" placeholder="密码" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="password" id="loginPassword" placeholder="密码" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="submit-btn" onclick="submitLogin()">登录</button>
-                    <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
                 </div>
             </div>
             
@@ -398,17 +491,16 @@
             <div id="registerForm" class="auth-form" style="display: none;">
                 <h3>用户注册</h3>
                 <div style="margin-bottom: 1rem;">
-                    <input type="text" id="registerUsername" placeholder="用户名（4-20个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="registerUsername" placeholder="用户名" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div style="margin-bottom: 1rem;">
-                    <input type="password" id="registerPassword" placeholder="密码（至少6个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="password" id="registerPassword" placeholder="密码" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div style="margin-bottom: 1.5rem;">
-                    <input type="text" id="registerNickname" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="registerNickname" placeholder="昵称" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="submit-btn" onclick="submitRegister()">注册</button>
-                    <button type="button" class="cancel-btn" onclick="toggleAuthModal(false)">取消</button>
                 </div>
             </div>
         </div>
@@ -491,30 +583,57 @@
             }
         }
 
+        // 全局变量存储当前的上传请求对象
+        let currentUploadXHR = null;
+
         // 上传弹窗控制
         function toggleUpload(show) {
             if (show && !currentUser) {
                 showMessage('请先登录后再上传视频');
                 toggleAuthModal(true, 'login');
-                return;
+                return; // 确保不会执行后面的代码打开上传模态框
             }
             
             const modal = document.getElementById('uploadModal');
             const overlay = document.getElementById('overlay');
+            const submitBtn = document.getElementById('uploadForm')?.querySelector('.submit-btn');
+            const progressContainer = document.getElementById('progressContainer');
+            
+            // 如果要关闭模态框，并且有正在进行的上传
+            if (!show && currentUploadXHR && currentUploadXHR.readyState < 4) {
+                // 中断上传
+                currentUploadXHR.abort();
+                console.log('上传已取消');
+                
+                // 重置上传状态
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '提交';
+                }
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
+                currentUploadXHR = null;
+            }
             
             modal.style.display = show ? 'block' : 'none';
             overlay.style.display = show ? 'block' : 'none';
             
             if (!show) {
-                document.getElementById('uploadForm').reset();
+                // 重置表单
+                const uploadForm = document.getElementById('uploadForm');
+                if (uploadForm) {
+                    uploadForm.reset();
+                    // 重置文件信息显示
+                    document.getElementById('coverFileInfo').textContent = '未选择文件';
+                    document.getElementById('videoFileInfo').textContent = '未选择文件';
+                }
             }
         }
 
-        // 删除视频（不需要密码确认，与视频播放页逻辑一致）
+        // 显示删除确认对话框
         function confirmDeleteVideo(videoId) {
-            if (confirm('确定要删除这个视频吗？此操作不可恢复，视频和封面文件将被永久删除。')) {
-                deleteVideo(videoId);
-            }
+            toggleDeleteConfirm(true, videoId);
         }
         
         // 执行删除视频的API调用
@@ -772,6 +891,8 @@
         function updateAuthUI() {
             const loginBtn = document.getElementById('loginBtn');
             
+            if (!loginBtn) return;
+            
             if (currentUser) {
                 // 添加nickname容错处理，确保显示用户名而不是undefined
                 loginBtn.textContent = `退出登录`;
@@ -781,18 +902,24 @@
                 loginBtn.style.color = '#ffffff';
                 loginBtn.style.fontWeight = 'bold';
             } else {
+                // 强制更新按钮状态，确保退出登录后立即显示登录按钮
                 loginBtn.textContent = '登录';
+                // 清除旧的点击事件并重新绑定
+                loginBtn.onclick = null;
                 loginBtn.onclick = () => {
                     // 根据是否有注册信息的cookie决定默认标签
                     const hasRegistered = getCookie('hasRegistered') === 'true';
                     toggleAuthModal(hasRegistered ? 'login' : 'login');
                 };
-                // 设置醒目的登录按钮样式
+                // 强制应用样式
                 loginBtn.style.backgroundColor = '#27ae60'; // 绿色背景
                 loginBtn.style.color = '#ffffff'; // 白色文字
                 loginBtn.style.fontWeight = 'bold'; // 粗体
                 loginBtn.style.boxShadow = '0 2px 8px rgba(39, 174, 96, 0.3)'; // 添加绿色阴影
                 loginBtn.style.transition = 'all 0.3s ease'; // 添加过渡效果
+                
+                // 强制重排，确保UI立即更新
+                loginBtn.offsetHeight;
             }
         }
         
@@ -818,22 +945,95 @@
             }
         }
         
-        // DOM加载完成后添加事件监听器
-        document.addEventListener('DOMContentLoaded', () => {
-            // 为遮罩层添加点击事件，点击时关闭认证模态框
-            const overlay = document.getElementById('overlay');
-            if (overlay) {
-                overlay.addEventListener('click', (e) => {
-                    // 确保点击的是遮罩层本身，而不是其中的模态框
-                    if (e.target === overlay) {
-                        toggleAuthModal(false);
-                        toggleUpload(false);
+        // 初始化拖放上传功能
+        function initDropUploads() {
+            // 封面图片拖放区域
+            const coverDropArea = document.getElementById('coverDropArea');
+            const coverFileInput = document.getElementById('coverFileInput');
+            const coverFileInfo = document.getElementById('coverFileInfo');
+            
+            // 视频拖放区域
+            const videoDropArea = document.getElementById('videoDropArea');
+            const videoFileInput = document.getElementById('videoFileInput');
+            const videoFileInfo = document.getElementById('videoFileInfo');
+            
+            // 通用拖放事件处理函数
+            function setupDropArea(dropArea, fileInput, fileInfo) {
+                // 点击选择文件
+                dropArea.addEventListener('click', (e) => {
+                    // 只有当点击的是区域本身或选择按钮时，才触发文件选择
+                    if (e.target === dropArea || e.target.tagName === 'BUTTON') {
+                        fileInput.click();
+                    }
+                });
+                
+                // 文件选择变化
+                fileInput.addEventListener('change', () => {
+                    if (fileInput.files.length > 0) {
+                        fileInfo.textContent = fileInput.files[0].name;
+                    } else {
+                        fileInfo.textContent = '未选择文件';
+                    }
+                });
+                
+                // 拖放事件
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, preventDefaults, false);
+                });
+                
+                function preventDefaults(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                
+                // 高亮效果
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => {
+                        dropArea.classList.add('drag-over');
+                    });
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => {
+                        dropArea.classList.remove('drag-over');
+                    });
+                });
+                
+                // 处理文件拖放
+                dropArea.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
+                    
+                    if (files.length > 0) {
+                        // 创建DataTransfer对象来设置文件
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(files[0]);
+                        fileInput.files = dataTransfer.files;
+                        fileInfo.textContent = files[0].name;
                     }
                 });
             }
             
+            // 设置两个拖放区域
+            setupDropArea(coverDropArea, coverFileInput, coverFileInfo);
+            setupDropArea(videoDropArea, videoFileInput, videoFileInfo);
+        }
+        
+        // DOM加载完成后添加事件监听器
+        document.addEventListener('DOMContentLoaded', () => {
+            // 移除遮罩层点击事件，确保拟态框只能通过关闭按钮关闭
+            
+            // 检查登录状态
+            checkLoginStatus();
+            
             // 初始化WebSocket连接
             initWebSocket();
+            
+            // 加载视频列表
+            loadVideos();
+            
+            // 初始化拖放上传功能
+            initDropUploads();
         });
         
         // 切换登录/注册标签
@@ -875,11 +1075,33 @@
         // 提交表单（带进度条）
         function submitForm() {
             const form = document.getElementById('uploadForm');
-            const formData = new FormData(form);
+            const titleInput = form.querySelector('input[name="title"]');
+            const coverFileInput = document.getElementById('coverFileInput');
+            const videoFileInput = document.getElementById('videoFileInput');
             const submitBtn = form.querySelector('.submit-btn');
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
+            
+            // 客户端表单验证
+            if (!titleInput.value.trim()) {
+                showMessage('请输入视频标题', true);
+                titleInput.focus();
+                return;
+            }
+            
+            if (!coverFileInput.files || coverFileInput.files.length === 0) {
+                showMessage('请选择封面图片', true);
+                return;
+            }
+            
+            if (!videoFileInput.files || videoFileInput.files.length === 0) {
+                showMessage('请选择视频文件', true);
+                return;
+            }
+            
+            // 创建FormData
+            const formData = new FormData(form);
             
             // 获取token
             const token = localStorage.getItem('authToken');
@@ -894,6 +1116,8 @@
             
             // 使用XMLHttpRequest来监控上传进度
             const xhr = new XMLHttpRequest();
+            // 保存当前上传请求到全局变量
+            currentUploadXHR = xhr;
             
             xhr.open('POST', `${API_BASE}/api/videos`);
             
@@ -914,17 +1138,32 @@
             // 完成时的处理
             xhr.addEventListener('load', function() {
                 try {
-                    const result = JSON.parse(xhr.responseText);
-                    if (xhr.status === 200 && result.code === 200) {
+                    // 无论状态码如何，尝试解析响应
+                    let result;
+                    try {
+                        result = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        throw new Error('服务器返回了非JSON格式的响应');
+                    }
+                    
+                    // 更灵活地处理响应：如果视频实际已上传成功，即使状态码不是200，也显示成功
+                    if ((xhr.status === 200 && result.code === 200) || 
+                        (result && result.data && result.data.video_id)) {
                         toggleUpload(false);
-                        loadVideos();
+                        loadVideos(); // 强制刷新视频列表
                         showMessage('上传成功');
                     } else {
-                        throw new Error(result.msg || '上传失败');
+                        // 处理错误状态
+                        const errorMsg = result.msg || `请求失败: ${xhr.status} ${xhr.statusText}`;
+                        showMessage('上传过程中遇到问题: ' + errorMsg, true);
+                        // 即使有错误，也尝试刷新视频列表，因为文件可能已成功上传
+                        setTimeout(loadVideos, 1000);
                     }
                 } catch (error) {
                     showMessage('上传失败: ' + error.message, true);
                 } finally {
+                    // 清理上传请求引用
+                    currentUploadXHR = null;
                     submitBtn.disabled = false;
                     submitBtn.textContent = '提交';
                     progressContainer.style.display = 'none';
@@ -934,6 +1173,18 @@
             // 错误处理
             xhr.addEventListener('error', function() {
                 showMessage('网络错误，请重试', true);
+                // 清理上传请求引用
+                currentUploadXHR = null;
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交';
+                progressContainer.style.display = 'none';
+            });
+            
+            // 上传取消处理
+            xhr.addEventListener('abort', function() {
+                showMessage('上传已取消');
+                // 清理上传请求引用
+                currentUploadXHR = null;
                 submitBtn.disabled = false;
                 submitBtn.textContent = '提交';
                 progressContainer.style.display = 'none';
@@ -947,12 +1198,6 @@
         async function confirmDelete() {
             if (!currentDeleteVideoId) return;
             
-            const password = document.getElementById('deletePassword').value;
-            if (!password) {
-                showMessage('请输入密码', true);
-                return;
-            }
-            
             try {
                 // 获取token
                 const token = localStorage.getItem('authToken');
@@ -960,10 +1205,8 @@
                 const response = await fetch(`${API_BASE}/api/videos/${currentDeleteVideoId}`, {
                     method: 'DELETE',
                     headers: {
-                        'Content-Type': 'application/json',
                         'Authorization': token ? `Bearer ${token}` : ''
-                    },
-                    body: JSON.stringify({ password })
+                    }
                 });
                 
                 const result = await response.json();
@@ -991,11 +1234,20 @@
             checkLoginStatus(); // 页面加载时检查登录状态
         });
         
-        // 点击遮罩层关闭弹窗
-        document.getElementById('overlay').addEventListener('click', function() {
-            toggleUpload(false);
-            toggleDeleteConfirm(false);
-        });
+        // 切换删除确认模态框显示
+        function toggleDeleteConfirm(show, videoId = null) {
+            const deleteConfirm = document.getElementById('deleteConfirm');
+            const overlay = document.getElementById('overlay');
+            
+            deleteConfirm.style.display = show ? 'block' : 'none';
+            overlay.style.display = show ? 'block' : 'none';
+            
+            if (show && videoId) {
+                currentDeleteVideoId = videoId;
+            }
+        }
+        
+        // 注意：移除了遮罩层点击关闭事件，确保拟态框只能通过关闭按钮关闭
     </script>
 </body>
 </html>
