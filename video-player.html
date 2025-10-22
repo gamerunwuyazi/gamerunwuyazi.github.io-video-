@@ -5,6 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>视频播放</title>
+    <!-- 使用国内稳定CDN引入Video.js，提高加载速度 -->
+    <!-- 主CDN：BootCDN -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/video.js/7.20.3/video-js.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/video.js/7.20.3/video.min.js"></script>
+    
+    <!-- 备用CDN1：CDNJS -->
+    <script>window.videojs||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.20.3/video.min.js"><\/script><link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.20.3/video-js.min.css" rel="stylesheet">')</script>
+    
+    <!-- 备用CDN2：360 CDN -->
+    <script>window.videojs||document.write('<script src="https://lib.baomitu.com/video.js/7.20.3/video.min.js"><\/script><link href="https://lib.baomitu.com/video.js/7.20.3/video-js.min.css" rel="stylesheet">')</script>
     <style>
         * {
             margin: 0;
@@ -17,6 +27,27 @@
             color: white;
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+        
+        /* 移动设备视频控制样式 */
+        video::-webkit-media-controls {
+            display: none !important;
+        }
+        
+        video::-webkit-media-controls-play-button,
+        video::-webkit-media-controls-start-playback-button {
+            display: none !important;
+            -webkit-appearance: none;
+        }
+        
+        /* 确保Video.js控制栏在移动设备上正常显示 */
+        @media (max-width: 768px) {
+            .vjs-control-bar {
+                display: flex !important;
+                opacity: 1 !important;
+            }
         }
 
         .player-container {
@@ -58,7 +89,7 @@
             background: #000;
         }
         
-        /* 弹幕容器样式 */
+        /* 弹幕容器样式 - 增强移动设备兼容性 */
         .danmu-container {
             position: absolute;
             top: 0;
@@ -67,8 +98,31 @@
             height: 100%;
             pointer-events: none;
             overflow: hidden;
-            z-index: 9999; /* 确保在播放器上方 */
+            z-index: 2147483647; /* 最高层级，确保在Video.js控件之上 */
             background: transparent;
+            will-change: transform;
+            -webkit-transform: translateZ(0); /* 硬件加速 */
+            transform: translateZ(0);
+            /* 添加动画关键帧 */
+            animation-delay: 0s;
+        }
+        
+        /* 弹幕动画 */
+        @keyframes danmuSlide {
+            from { transform: translateX(100%); }
+            to { transform: translateX(-100%); }
+        }
+        
+        /* 弹幕项样式 */
+        .danmu-item {
+            position: absolute;
+            white-space: nowrap;
+            font-size: 16px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            animation: danmuSlide 8s linear forwards;
+            animation-play-state: running;
+            z-index: 2147483647;
+            pointer-events: none;
         }
         
         /* 弹幕参考容器 */
@@ -82,17 +136,70 @@
             visibility: hidden;
         }
         
-        /* 自定义播放器全屏样式 */
-        .custom-player:fullscreen,
-        .custom-player:-webkit-full-screen,
-        .custom-player:-moz-full-screen,
-        .custom-player:-ms-fullscreen {
+        /* 弹幕颜色选择器样式 */
+        .danmu-color-picker {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+        
+        .color-label {
+            font-size: 14px;
+            margin-right: 8px;
+            color: #333;
+        }
+        
+        .color-options {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .color-option {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.active {
+            border-color: #333;
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #333;
+        }
+        
+        /* 自定义播放器全屏样式 - 优化全屏体验 */
+        .video-player-wrapper:fullscreen,
+        .video-player-wrapper:-webkit-full-screen,
+        .video-player-wrapper:-moz-full-screen,
+        .video-player-wrapper:-ms-fullscreen {
+            width: 100% !important;
+            height: 100vh !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            background-color: #000 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: hidden !important;
             width: 100%;
-            height: 100%;
+            height: 100vh;
             max-width: 100%;
             max-height: 100%;
             margin: 0;
             border-radius: 0;
+            background-color: #000;
+            position: relative;
         }
         
         /* 全屏模式下视频包装器样式 */
@@ -102,6 +209,34 @@
         :-ms-fullscreen .video-wrapper {
             width: 100%;
             height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000;
+        }
+        
+        /* 全屏模式下视频元素样式 */
+        :fullscreen #videoPlayer,
+        :-webkit-full-screen #videoPlayer,
+        :-moz-full-screen #videoPlayer,
+        :-ms-fullscreen #videoPlayer {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain;
+            background-color: #000;
+        }
+        
+        /* 修复全屏模式下的Video.js容器样式 */
+        :fullscreen .video-wrapper,
+        :-webkit-full-screen .video-wrapper,
+        :-moz-full-screen .video-wrapper,
+        :-ms-fullscreen .video-wrapper {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #000 !important;
         }
         
         /* 全屏模式下弹幕容器样式 */
@@ -112,6 +247,7 @@
             width: 100%;
             height: 100%;
             z-index: 2147483647; /* 使用最大的z-index值确保在最上层 */
+            background-color: transparent;
         }
         
         /* 全屏模式下参考容器样式 */
@@ -121,6 +257,16 @@
         :-ms-fullscreen #danmuReferenceContainer {
             width: 100%;
             height: 100%;
+        }
+        
+        /* 修复Video.js大播放按钮定位 */
+        .vjs-big-play-button {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            margin: 0 !important;
+            z-index: 100 !important;
         }
         
         /* 自定义全屏按钮 */
@@ -173,7 +319,48 @@
                 opacity: 0; /* 完全离开后透明 */
             }
         }
-
+        
+        /* CSS样式块结束 */
+    </style>
+    
+    <script>
+        // 添加全屏状态监听
+        document.addEventListener('fullscreenchange', updateFullscreenButtonIcon);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButtonIcon);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButtonIcon);
+        document.addEventListener('MSFullscreenChange', updateFullscreenButtonIcon);
+        
+        // 修改updateFullscreenButtonIcon函数，自动检测全屏状态
+        function updateFullscreenButtonIcon() {
+            const isFullscreen = !!document.fullscreenElement;
+            const fullscreenBtn = document.getElementById('customFullscreenBtn');
+            if (!fullscreenBtn) return;
+            
+            if (isFullscreen) {
+                // 全屏状态下显示退出全屏图标
+                fullscreenBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 3 3 3 3 9"></polyline>
+                        <polyline points="15 21 21 21 21 15"></polyline>
+                        <line x1="3" y1="9" x2="10" y2="16"></line>
+                        <line x1="21" y1="15" x2="14" y2="8"></line>
+                    </svg>
+                `;
+            } else {
+                // 非全屏状态下显示进入全屏图标
+                fullscreenBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="9" x2="14" y2="16"></line>
+                        <line x1="3" y1="15" x2="10" y2="8"></line>
+                    </svg>
+                `;
+            }
+        }
+    </script>
+    
+    <style>
         .back-btn {
             position: fixed;
             top: 20px;
@@ -316,6 +503,34 @@
         .danmu-send:disabled {
             background: #444;
             cursor: not-allowed;
+        }
+        
+        /* 自定义全屏按钮样式 */
+        .custom-fullscreen-btn {
+            background-color: transparent;
+            color: white;
+            border: none;
+            border-radius: 0;
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .custom-fullscreen-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 控制栏中自定义全屏按钮包装器样式 */
+        .custom-fullscreen-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 4em;
         }
 
         .video-title {
@@ -577,7 +792,8 @@
         /* 调整模态框z-index，确保在遮罩层上方 */
         .auth-modal {
             z-index: 2001;
-        }    </style>
+        }
+    </style>
 </head>
 <body>
     <button class="back-btn" onclick="window.history.back()">返回列表</button>
@@ -588,36 +804,46 @@
     
     <div class="player-container">
         <!-- 自定义播放器 -->
-        <div class="custom-player" id="customPlayer">
+        <div class="video-player-wrapper" id="videoPlayerWrapper">
             <div class="video-wrapper">
-                <!-- 视频元素 - 禁用默认全屏按钮 -->
-                <video id="videoPlayer" controls controlsList="nofullscreen" autoplay>
-                    <source src="" type="video/mp4">
-                    您的浏览器不支持视频播放
-                </video>
-                
-                <!-- 弹幕起始位置参考容器 -->
-                <div id="danmuReferenceContainer"></div>
-                
-                <!-- 弹幕容器 -->
-                <div class="danmu-container" id="danmuContainer"></div>
-                
-                <!-- 自定义全屏按钮 -->
-                <button class="custom-fullscreen-btn" id="customFullscreenBtn" onclick="toggleCustomFullscreen()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <polyline points="9 21 3 21 3 15"></polyline>
-                        <line x1="21" y1="3" x2="14" y2="10"></line>
-                        <line x1="3" y1="21" x2="10" y2="14"></line>
-                    </svg>
-                </button>
+                <!-- 视频容器包含播放器和弹幕层 -->
+                <div style="position: relative; width: 100%; height: 100%;">
+                    <video crossorigin="anonymous" id="videoPlayer" class="video-js" controls preload="auto" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="false" x5-video-orientation="portraint" style="width: 100%; aspect-ratio: 16/9; object-fit: contain; background-color: black;">
+                        <source src="https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4" type="video/mp4">
+                        您的浏览器不支持HTML5视频播放
+                    </video>
+                    <!-- 弹幕容器 -->
+                    <div id="danmuContainer" class="danmu-container"></div>
+                </div>
             </div>
             
             <!-- 弹幕控制区域 -->
             <div class="danmu-controls">
                 <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕...">
+                <div class="danmu-color-picker">
+                    <span class="color-label">颜色:</span>
+                    <div class="color-options">
+                        <button class="color-option" data-color="#ffffff" style="background-color: #ffffff; border: 1px solid #ccc;"></button>
+                        <button class="color-option" data-color="#ff0000" style="background-color: #ff0000;"></button>
+                        <button class="color-option" data-color="#00ff00" style="background-color: #00ff00;"></button>
+                        <button class="color-option" data-color="#00ffff" style="background-color: #00ffff;"></button>
+                        <button class="color-option" data-color="#ff00ff" style="background-color: #ff00ff;"></button>
+                        <button class="color-option" data-color="#ffff00" style="background-color: #ffff00;"></button>
+                    </div>
+                </div>
                 <button class="danmu-send" onclick="sendDanmu()">发送</button>
+                <div>提示：有颜色的弹幕自己看不见颜色</div>
             </div>
+            
+            <!-- 自定义全屏按钮将在Video.js初始化后添加到控制栏 -->
+            <button id="customFullscreenBtn" class="custom-fullscreen-btn" onclick="toggleFullscreen()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="9" x2="14" y2="16"></line>
+                    <line x1="3" y1="15" x2="10" y2="8"></line>
+                </svg>
+            </button>
         </div>
         
         <div>
@@ -689,13 +915,283 @@
     <script>
         // 设置后端API基础URL为用户指定的地址
         const API_BASE = 'http://152.136.175.209:3002';
+        const DEFAULT_COVER = 'https://picsum.photos/400/300';
         let videoId = null;
         let videoData = null;
         let danmus = [];
         let comments = [];
+        let lastDanmuCheck = null; // 跟踪上次弹幕检查时间
         let danmuIdCounter = 0;
         let currentUser = null;
 
+        // Video.js播放器对象
+        let player = null;
+        
+        // 使用videojs-danmaku插件的Video.js初始化
+        function initVideoPlayer() {
+            // 检查videojs是否已加载
+            if (typeof videojs === 'undefined') {
+                console.error('Video.js 未成功加载');
+                // 尝试使用原生video元素作为回退
+                initNativeVideoPlayer();
+                return;
+            }
+            
+            // 设置中文语言包
+            if (videojs.addLanguage) {
+                videojs.addLanguage('zh-CN', {
+                    Play: "播放",
+                    Pause: "暂停",
+                    Mute: "静音",
+                    Unmute: "取消静音"
+                });
+            }
+            
+            // 初始化播放器，禁用双击放大功能并添加移动设备配置
+            player = videojs('videoPlayer', {
+                controls: true,
+                autoplay: false,
+                preload: 'auto',
+                language: 'zh-CN',
+                responsive: true,
+                bigPlayButton: true,
+                disableContextMenu: true, // 禁用右键菜单
+                userActions: {
+                    doubleClick: false // 禁用双击放大
+                },
+                controlBar: {
+                    fullscreenToggle: false // 禁用默认全屏按钮
+                },
+                // 移动设备相关配置
+                nativeControlsForTouch: false, // 禁用原生触摸控制
+                inactivityTimeout: 0, // 防止控制栏自动隐藏
+                techOrder: ['html5'], // 优先使用HTML5播放器
+                html5: {
+                    nativeAudioTracks: false,
+                    nativeVideoTracks: false,
+                    nativeTextTracks: false
+                }
+            });
+            
+            console.log('Video.js播放器初始化完成');
+            
+            // 移动设备额外控制
+            if (player && player.tech_) {
+                const tech = player.tech_;
+                
+                // 监听播放事件，防止系统接管
+                player.on('play', function() {
+                    if (tech && tech.el_) {
+                        // 强制保持内联播放模式
+                        tech.el_.setAttribute('playsinline', 'true');
+                        tech.el_.setAttribute('webkit-playsinline', 'true');
+                        tech.el_.setAttribute('x5-playsinline', 'true');
+                    }
+                });
+                
+                // 处理触摸事件
+                if (window.TouchEvent) {
+                    player.on('touchstart', function(e) {
+                        // 阻止默认行为，避免系统接管
+                        e.preventDefault();
+                    }, { passive: false });
+                }
+                
+                // 针对iOS设备的特殊处理
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    // 确保Video.js控制栏始终可见
+                    player.controlBar.show();
+                    player.controlBar.el_.style.display = 'flex';
+                    player.controlBar.el_.style.opacity = '1';
+                }
+            }
+            
+            // 禁用Video.js默认的全屏按钮并集成自定义全屏按钮到控制栏
+            setTimeout(function() {
+                try {
+                    // 禁用默认全屏按钮
+                    const defaultFullscreenBtn = player.getChild('controlBar').getChild('fullscreenToggle');
+                    if (defaultFullscreenBtn) {
+                        defaultFullscreenBtn.dispose(); // 完全移除默认按钮
+                    }
+                    
+                    // 获取自定义全屏按钮
+                    const customFullscreenBtn = document.getElementById('customFullscreenBtn');
+                    if (customFullscreenBtn) {
+                        // 移除原有的绝对定位样式
+                        customFullscreenBtn.style.position = 'static';
+                        customFullscreenBtn.style.bottom = 'auto';
+                        customFullscreenBtn.style.right = 'auto';
+                        customFullscreenBtn.style.zIndex = 'auto';
+                        customFullscreenBtn.style.width = 'auto';
+                        customFullscreenBtn.style.height = 'auto';
+                        
+                        // 获取控制栏
+                        const controlBar = player.getChild('controlBar').el();
+                        
+                        // 创建一个包装器来放置自定义按钮
+                        const customFullscreenWrapper = document.createElement('div');
+                        customFullscreenWrapper.className = 'vjs-control vjs-button custom-fullscreen-wrapper';
+                        customFullscreenWrapper.appendChild(customFullscreenBtn);
+                        
+                        // 将自定义按钮添加到控制栏的最右侧
+                        controlBar.appendChild(customFullscreenWrapper);
+                    }
+                } catch (error) {
+                    console.error('无法修改Video.js控制栏:', error);
+                }
+            }, 500);
+            
+            // 添加必要的事件监听以支持弹幕功能
+            player.on('loadedmetadata', function() {
+                console.log('视频已加载');
+                resetDanmuLines();
+            });
+            
+            player.on('play', function() {
+                console.log('视频开始播放');
+                resumeDanmus();
+            });
+            
+            player.on('pause', function() {
+                console.log('视频暂停');
+                pauseDanmus();
+            });
+            
+            // 监听Video.js全屏事件
+            player.on('fullscreenchange', function() {
+                console.log('Video.js全屏状态改变:', player.isFullscreen());
+                // 全屏变化时重新调整弹幕容器
+                setTimeout(() => {
+                    resetDanmuLines();
+                }, 100);
+            });
+            
+            player.on('seeked', function() {
+                console.log('视频跳转');
+                resetDanmuLines();
+                clearAllDanmus();
+                showDanmus();
+            });
+            
+            player.on('timeupdate', function() {
+                showDanmus();
+            });
+            
+            player.on('error', function() {
+                console.error('Video.js播放错误:', player.error());
+            });
+        }
+        
+        // 更新弹幕显示的函数
+        function updateDanmus() {
+            showDanmus();
+        }
+        
+        // 视频时间格式化函数
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // 加载视频源的函数，适配Video.js
+        function loadVideoSource(src) {
+            if (player) {
+                player.src(src);
+                player.load();
+            }
+        }
+            
+        // 全局变量存储弹幕控制函数，避免作用域问题
+        let showDanmuControls = null;
+        
+        // 增强版全屏变化处理函数 - 适配Video.js播放器
+        function handleFullscreenChange() {
+            const isFullscreen = !!document.fullscreenElement || 
+                               !!document.webkitFullscreenElement || 
+                               !!document.mozFullScreenElement || 
+                               !!document.msFullscreenElement;
+            
+            // 更新全屏按钮图标
+            updateFullscreenButtonIcon(isFullscreen);
+            
+            // 更新弹幕容器样式，确保在全屏时正确显示
+            const danmuContainer = document.getElementById('danmuContainer');
+            if (danmuContainer) {
+                // 确保弹幕容器在全屏时有正确的样式
+                danmuContainer.style.position = 'absolute';
+                danmuContainer.style.top = '0';
+                danmuContainer.style.left = '0';
+                danmuContainer.style.width = '100%';
+                danmuContainer.style.height = '100%';
+                danmuContainer.style.pointerEvents = 'none';
+                danmuContainer.style.zIndex = '2147483647'; // 确保在Video.js播放器上层
+                
+                // 不重新加载弹幕或重置弹幕行，保留当前显示状态
+                // 强制重排以确保样式生效
+                danmuContainer.offsetHeight;
+            }
+            
+            // 只更新弹幕位置和样式，不重置动画
+            const danmuElements = document.querySelectorAll('.danmu-item');
+            danmuElements.forEach(element => {
+                // 确保弹幕在最上层
+                element.style.zIndex = '2147483647';
+                // 不重新开始动画，避免弹幕重置
+            });
+            
+            // 重新显示当前时间点的弹幕，无论使用哪种播放器
+            showDanmus();
+            
+            // 控制弹幕输入区域在全屏模式下的显示/隐藏
+            const danmuControls = document.querySelector('.danmu-controls');
+            if (danmuControls) {
+                if (isFullscreen) {
+                    // 全屏模式下默认隐藏弹幕控制区域
+                    danmuControls.style.opacity = '0';
+                    danmuControls.style.transition = 'opacity 0.3s ease';
+                    
+                    // 定义显示控制区域的函数
+                    showDanmuControls = function() {
+                        danmuControls.style.opacity = '1';
+                        
+                        // 清除之前的定时器
+                        if (window.hideControlsTimer) {
+                            clearTimeout(window.hideControlsTimer);
+                        }
+                        
+                        // 设置定时器，在鼠标停止移动2秒后隐藏控制区域
+                        window.hideControlsTimer = setTimeout(function() {
+                            if (!!document.fullscreenElement || 
+                                !!document.webkitFullscreenElement || 
+                                !!document.mozFullScreenElement || 
+                                !!document.msFullscreenElement) {
+                                danmuControls.style.opacity = '0';
+                            }
+                        }, 2000);
+                    };
+                    
+                    // 移除之前的事件监听器，避免重复添加
+                    if (showDanmuControls) {
+                        document.removeEventListener('mousemove', showDanmuControls);
+                    }
+                    document.addEventListener('mousemove', showDanmuControls);
+                } else {
+                    // 非全屏模式下显示弹幕控制区域
+                    danmuControls.style.opacity = '1';
+                    // 移除事件监听器
+                    if (showDanmuControls) {
+                        document.removeEventListener('mousemove', showDanmuControls);
+                    }
+                    if (window.hideControlsTimer) {
+                        clearTimeout(window.hideControlsTimer);
+                    }
+                }
+            }
+        }
+        
         // 初始化播放器
         async function initPlayer() {
             videoId = new URLSearchParams(window.location.search).get('id');
@@ -707,9 +1203,8 @@
             // 检查用户登录状态
             await checkLoginStatus();
             
-            // 添加全屏事件监听器
-            const customPlayer = document.getElementById('customPlayer');
-            const danmuContainer = document.getElementById('danmuContainer');
+            // 初始化Video.js播放器
+            initVideoPlayer();
             
             // 监听全屏变化事件
             document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -717,43 +1212,8 @@
             document.addEventListener('fullscreenchange', handleFullscreenChange);
             document.addEventListener('MSFullscreenChange', handleFullscreenChange);
             
-            // 全屏变化处理函数
-            function handleFullscreenChange() {
-                const isFullscreen = !!document.fullscreenElement || 
-                                   !!document.webkitFullscreenElement || 
-                                   !!document.mozFullScreenElement || 
-                                   !!document.msFullscreenElement;
-                
-                // 更新全屏按钮图标
-                updateFullscreenButtonIcon(isFullscreen);
-                
-                // 更新所有现有弹幕的动画
-                const danmuElements = document.querySelectorAll('.danmu-item');
-                danmuElements.forEach(element => {
-                    // 保留当前动画进度
-                    const computedStyle = window.getComputedStyle(element);
-                    const animationDuration = parseFloat(computedStyle.animationDuration) || 6;
-                    const animationDelay = parseFloat(computedStyle.animationDelay) || 0;
-                    const animationName = computedStyle.animationName;
-                    const animationPlayState = computedStyle.animationPlayState;
-                    
-                    // 设置z-index确保在最上层
-                    element.style.zIndex = '2147483647';
-                    
-                    // 重新应用动画以适应新容器
-                    element.style.animation = 'none';
-                    element.offsetHeight; // 触发重排
-                    element.style.animation = `${animationName} ${animationDuration}s linear ${animationDelay}s`;
-                    element.style.animationPlayState = animationPlayState;
-                });
-            }
+            // 视频已准备就绪，Video.js会自动处理加载状态
             
-            // 确保视频在加载完成前弹幕不移动
-            let videoReady = false;
-            videoPlayer.addEventListener('canplay', function() {
-                videoReady = true;
-            });
-
             try {
                 // 显示加载状态
                 document.getElementById('commentList').innerHTML = '<div class="loading">加载中...</div>';
@@ -765,7 +1225,8 @@
                 if (code === 200) {
                     videoData = data;
                     document.title = data.title + ' - 视频分享平台';
-                    document.getElementById('videoPlayer').src = data.video_path;
+                    // 使用Video.js加载视频
+                    loadVideoSource(data.video_path);
                     document.getElementById('videoTitle').textContent = data.title;
                     
                     // 显示视频描述和上传者昵称
@@ -845,6 +1306,22 @@
                 deleteBtn.textContent = '删除中...';
                 
                 const token = localStorage.getItem('authToken');
+                
+                // 第一步：删除实际的视频文件和封面文件
+                const deleteFilesResponse = await fetch(`${API_BASE}/api/videos/${videoId}/files`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const deleteFilesResult = await deleteFilesResponse.json();
+                if (deleteFilesResult.code !== 200) {
+                    console.warn('删除文件失败，但继续删除视频元数据:', deleteFilesResult.msg);
+                    // 这里不抛出错误，继续执行元数据删除
+                }
+                
+                // 第二步：删除视频元数据
                 const response = await fetch(`${API_BASE}/api/videos/${videoId}`, {
                     method: 'DELETE',
                     headers: {
@@ -854,7 +1331,7 @@
                 
                 const result = await response.json();
                 if (result.code === 200) {
-                    showMessage('视频删除成功');
+                    showMessage('视频删除成功，文件已清理');
                     // 2秒后返回视频列表
                     setTimeout(() => {
                         window.location.href = 'index.html';
@@ -873,38 +1350,62 @@
         // 加载弹幕
         async function loadDanmus() {
             try {
+                // 从API加载弹幕
                 const response = await fetch(`${API_BASE}/api/danmus?video_id=${videoId}`);
                 const { code, data } = await response.json();
                 
                 if (code === 200) {
-                    danmus = data;
-                    const video = document.getElementById('videoPlayer');
-                    // 监听视频时间更新，显示对应弹幕
-                    video.removeEventListener('timeupdate', showDanmus);
-                    video.addEventListener('timeupdate', showDanmus);
-                    // 监听视频暂停和播放事件，控制弹幕动画
-                    video.removeEventListener('pause', pauseDanmus);
-                    video.addEventListener('pause', pauseDanmus);
-                    video.removeEventListener('play', resumeDanmus);
-                    video.addEventListener('play', resumeDanmus);
-                    // 监听视频进度跳转事件，更新弹幕显示
-                    video.removeEventListener('seeked', onSeeked);
-                    video.addEventListener('seeked', onSeeked);
-                    
-                    // 添加视频结束事件监听，清空弹幕容器
-                    video.removeEventListener('ended', clearAllDanmus);
-                    video.addEventListener('ended', clearAllDanmus);
+                    danmus = data || [];
+                    console.log('弹幕加载成功，共', danmus.length, '条弹幕');
+                } else {
+                    danmus = [];
+                    console.log('API返回错误，没有加载弹幕');
                 }
+                
+                // 确保弹幕容器已初始化
+                if (!danmuContainer) {
+                    initDanmuContainer();
+                }
+                
+                // 重置弹幕行状态
+                resetDanmuLines();
+                
             } catch (error) {
                 console.error('弹幕加载失败:', error);
                 showMessage('弹幕加载失败', true);
+                danmus = [];
+                
+                // 确保弹幕容器已初始化
+                if (!danmuContainer) {
+                    initDanmuContainer();
+                }
+                
+                // 重置弹幕行状态
+                resetDanmuLines();
+            }
+        }
+        
+        // 初始化弹幕容器
+        function initDanmuContainer() {
+            danmuContainer = document.getElementById('danmuContainer');
+            if (danmuContainer) {
+                console.log('弹幕容器已初始化');
+                // 设置弹幕容器样式
+                danmuContainer.style.position = 'absolute';
+                danmuContainer.style.top = '0';
+                danmuContainer.style.left = '0';
+                danmuContainer.style.width = '100%';
+                danmuContainer.style.height = '100%';
+                danmuContainer.style.pointerEvents = 'none';
+                danmuContainer.style.zIndex = '1000'; // 确保在Video.js控制层下方
+            } else {
+                console.error('未找到弹幕容器');
             }
         }
 
         // 显示弹幕
         function showDanmus() {
-            const video = document.getElementById('videoPlayer');
-            const currentTime = video.currentTime;
+            const currentTime = player ? player.currentTime() : 0;
             const container = document.getElementById('danmuContainer');
             
             // 显示当前时间点的弹幕（不清除旧弹幕，让它们自然消失）
@@ -984,23 +1485,34 @@
             return 0;
         }
         
-        // 自定义全屏切换函数
+        // 使用Video.js内置的全屏功能替代自定义全屏
         function toggleCustomFullscreen() {
-            const customPlayer = document.getElementById('customPlayer');
+            if (player) {
+                if (player.isFullscreen()) {
+                    player.exitFullscreen();
+                } else {
+                    player.requestFullscreen();
+                }
+            }
+        }
+        
+        // 切换全屏功能
+        function toggleFullscreen() {
+            // 使用正确的容器ID而不是不存在的类名
+            const playerWrapper = document.getElementById('videoPlayerWrapper');
             
-            if (!document.fullscreenElement && 
-                !document.webkitFullscreenElement && 
-                !document.mozFullScreenElement && 
-                !document.msFullscreenElement) {
+            if (!document.fullscreenElement) {
                 // 进入全屏
-                if (customPlayer.requestFullscreen) {
-                    customPlayer.requestFullscreen();
-                } else if (customPlayer.webkitRequestFullscreen) {
-                    customPlayer.webkitRequestFullscreen();
-                } else if (customPlayer.mozRequestFullScreen) {
-                    customPlayer.mozRequestFullScreen();
-                } else if (customPlayer.msRequestFullscreen) {
-                    customPlayer.msRequestFullscreen();
+                if (playerWrapper && playerWrapper.requestFullscreen) {
+                    playerWrapper.requestFullscreen();
+                } else if (playerWrapper && playerWrapper.webkitRequestFullscreen) {
+                    playerWrapper.webkitRequestFullscreen();
+                } else if (playerWrapper && playerWrapper.mozRequestFullScreen) {
+                    playerWrapper.mozRequestFullScreen();
+                } else if (playerWrapper && playerWrapper.msRequestFullscreen) {
+                    playerWrapper.msRequestFullscreen();
+                } else {
+                    console.error('Fullscreen API not supported or container not found');
                 }
             } else {
                 // 退出全屏
@@ -1012,6 +1524,8 @@
                     document.mozCancelFullScreen();
                 } else if (document.msExitFullscreen) {
                     document.msExitFullscreen();
+                } else {
+                    console.error('Fullscreen exit API not supported');
                 }
             }
         }
@@ -1019,6 +1533,8 @@
         // 更新全屏按钮图标
         function updateFullscreenButtonIcon(isFullscreen) {
             const fullscreenBtn = document.getElementById('customFullscreenBtn');
+            if (!fullscreenBtn) return; // Skip if button doesn't exist
+            
             if (isFullscreen) {
                 // 全屏状态下显示退出全屏图标
                 fullscreenBtn.innerHTML = `
@@ -1099,16 +1615,16 @@
             container.appendChild(danmuElement);
             
             // 如果视频还没准备好，暂停弹幕动画
-            const videoPlayer = document.getElementById('videoPlayer');
-            if (videoPlayer.readyState < 2) { // HAVE_CURRENT_DATA
+            // 检查Video.js播放器就绪状态
+            if (player && player.readyState() < 2) { // HAVE_CURRENT_DATA
                 danmuElement.style.animationPlayState = 'paused';
                 
-                // 监听视频可以播放事件，恢复弹幕动画
+                // 监听Video.js播放器可以播放事件，恢复弹幕动画
                 const resumeAnimation = function() {
                     danmuElement.style.animationPlayState = 'running';
-                    videoPlayer.removeEventListener('canplay', resumeAnimation);
+                    player.off('canplay', resumeAnimation);
                 };
-                videoPlayer.addEventListener('canplay', resumeAnimation);
+                player.on('canplay', resumeAnimation);
             }
             
             // 确保弹幕在全屏模式下显示正确
@@ -1129,6 +1645,7 @@
                     const animationDelay = parseFloat(computedStyle.animationDelay) || 0;
                     const animationName = computedStyle.animationName;
                     const animationPlayState = computedStyle.animationPlayState;
+                    const currentColor = computedStyle.color; // 保存当前颜色
                     
                     // 临时移除动画并触发重排
                     danmuElement.style.animation = 'none';
@@ -1137,6 +1654,8 @@
                     // 重新应用动画，确保使用left属性而非transform
                     danmuElement.style.animation = `${animationName} ${animationDuration}s linear ${animationDelay}s`;
                     danmuElement.style.animationPlayState = animationPlayState;
+                    // 重新设置颜色，确保不丢失
+                    danmuElement.style.color = currentColor;
                 }
             };
             
@@ -1197,13 +1716,44 @@
             // 显示当前时间点的弹幕
             showDanmus();
             
-            // 如果视频是暂停状态，确保弹幕也是暂停的
-            const video = document.getElementById('videoPlayer');
-            if (video.paused) {
+            // 如果Video.js播放器是暂停状态，确保弹幕也是暂停的
+            if (player && player.paused()) {
                 setTimeout(pauseDanmus, 10); // 延迟暂停，确保新弹幕已经开始动画
             }
         }
 
+        // 当前选中的弹幕颜色，默认白色
+        let selectedDanmuColor = '#ffffff';
+        
+        // 初始化颜色选择器
+        function initColorPicker() {
+            const colorOptions = document.querySelectorAll('.color-option');
+            
+            // 设置默认选中的颜色（白色）
+            const defaultColor = document.querySelector('.color-option[data-color="#ffffff"]');
+            if (defaultColor) {
+                defaultColor.classList.add('active');
+            }
+            
+            // 添加颜色选择事件
+            colorOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // 移除所有颜色选项的active状态
+                    colorOptions.forEach(opt => opt.classList.remove('active'));
+                    // 为当前选中的颜色添加active状态
+                    this.classList.add('active');
+                    // 更新选中的颜色
+                    selectedDanmuColor = this.getAttribute('data-color');
+                });
+            });
+        }
+        
+        // 在页面加载完成后初始化颜色选择器
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待DOM元素加载完成后初始化颜色选择器
+            setTimeout(initColorPicker, 100);
+        });
+        
         // 发送弹幕
         async function sendDanmu() {
             const input = document.getElementById('danmuInput');
@@ -1219,7 +1769,26 @@
                 sendBtn.disabled = true;
                 sendBtn.textContent = '发送中...';
                 
+                // 使用用户选择的颜色
+                const color = selectedDanmuColor;
+                
+                // 使用自定义弹幕实现发送弹幕
                 const video = document.getElementById('videoPlayer');
+                const newDanmu = {
+                    id: 'temp_' + Date.now(), // 临时ID
+                    content: content,
+                    time: video.currentTime,
+                    color: color,
+                    created_at: new Date().toISOString()
+                };
+                
+                // 立即显示新发送的弹幕
+                showDanmuItem(newDanmu);
+                
+                // 添加到弹幕数组，确保回看时能显示
+                danmus.push(newDanmu);
+                
+                // 模拟发送到服务器（保留原有的服务器交互逻辑）
                 const response = await fetch(`${API_BASE}/api/danmus`, {
                     method: 'POST',
                     headers: {
@@ -1229,7 +1798,7 @@
                         video_id: videoId,
                         content: content,
                         time: video.currentTime,
-                        color: '#fff'
+                        color: color
                     })
                 });
                 
@@ -1237,21 +1806,6 @@
                 if (result.code === 200) {
                     input.value = '';
                     showMessage('弹幕发送成功');
-                    
-                    // 创建新弹幕对象
-                    const newDanmu = {
-                        id: 'temp_' + Date.now(), // 临时ID
-                        content: content,
-                        time: video.currentTime,
-                        color: '#fff',
-                        created_at: new Date().toISOString()
-                    };
-                    
-                    // 添加到弹幕数组，确保回看时能显示
-                    danmus.push(newDanmu);
-                    
-                    // 立即显示新发送的弹幕
-                    showDanmuItem(newDanmu);
                 } else {
                     throw new Error(result.msg);
                 }
@@ -1681,7 +2235,7 @@
                 sendBtn.disabled = true;
                 sendBtn.textContent = '发送中...';
                 
-                const time = videoPlayer.currentTime;
+                const time = player ? player.currentTime() : 0;
                 
                 // 从localStorage获取token
                 const token = localStorage.getItem('authToken');
@@ -1694,7 +2248,8 @@
                     body: JSON.stringify({
                         video_id: videoId,
                         content: content,
-                        time: time
+                        time: time,
+                        color: selectedDanmuColor
                     })
                 });
                 
@@ -1746,9 +2301,6 @@
 
         // 页面加载初始化
         window.addEventListener('DOMContentLoaded', function() {
-            // 初始化播放器
-            initPlayer();
-            
             // 立即检查登录状态，确保UI正确显示
             checkLoginStatus();
             
@@ -1758,54 +2310,177 @@
             
             if (loginTab) loginTab.addEventListener('click', function() { switchAuthTab('login'); });
             if (registerTab) registerTab.addEventListener('click', function() { switchAuthTab('register'); });
+            
+            // 延迟初始化播放器，确保Video.js完全加载
+            setTimeout(function() {
+                // 再次检查Video.js是否加载成功
+                if (typeof videojs === 'undefined') {
+                    console.warn('Video.js 仍未加载，尝试使用原生video元素');
+                    // 使用原生video元素作为回退
+                    initNativeVideoPlayer();
+                } else {
+                    // 使用Video.js初始化
+                    initPlayer();
+                }
+            }, 1000);
         });
         
-        // 监听视频错误事件
-        document.getElementById('videoPlayer').addEventListener('error', function(e) {
-            showMessage('视频播放错误', true);
-        });
-        
-        // 监听视频暂停事件（额外添加一个，确保事件被捕获）
-        document.getElementById('videoPlayer').addEventListener('pause', pauseDanmus);
-        
-        // 监听视频准备好事件，确保弹幕在视频准备好后再开始移动
-        document.getElementById('videoPlayer').addEventListener('canplay', function() {
-            // 恢复所有被暂停的弹幕动画
-            const pausedDanmus = document.querySelectorAll('.danmu-item[style*="animation-play-state: paused"]');
-            pausedDanmus.forEach(element => {
-                element.style.animationPlayState = 'running';
-            });
-        });
-        
-        // 监听视频容器的全屏按钮点击事件
-        const videoContainer = document.querySelector('.video-section');
-        if (videoContainer) {
-            videoContainer.addEventListener('click', function(e) {
-                // 确保只有在点击全屏按钮时才处理
-                // 这里使用一个简单的检查，实际项目中可能需要更精确的判断
-                const isFullscreenButton = e.target.className.includes('fullscreen') || 
-                                         e.target.title && e.target.title.includes('全屏');
+        // 原生video播放器初始化（作为Video.js的回退方案）
+        function initNativeVideoPlayer() {
+            console.log('使用原生video播放器作为回退');
+            const videoElement = document.getElementById('videoPlayer');
+            if (videoElement) {
+                // 确保video元素没有被Video.js修改
+                if (videoElement.classList.contains('vjs-tech')) {
+                    // 如果已经被Video.js修改，创建一个新的video元素
+                    const newVideo = document.createElement('video');
+                    newVideo.id = 'videoPlayer';
+                    newVideo.className = 'video-js vjs-default-skin';
+                    newVideo.controls = true;
+                    newVideo.style.width = '100%';
+                    newVideo.style.height = '100%';
+                    videoElement.parentNode.replaceChild(newVideo, videoElement);
+                }
                 
-                if (isFullscreenButton || e.target === document.getElementById('videoPlayer')) {
-                    // 稍微延迟以确保全屏状态已更新
-                    setTimeout(() => {
-                        // 更新弹幕容器大小
-                        const danmuContainer = document.getElementById('danmuContainer');
-                        const isFullscreen = !!document.fullscreenElement || 
-                                           !!document.webkitFullscreenElement || 
-                                           !!document.mozFullScreenElement || 
-                                           !!document.msFullscreenElement;
-                        
-                        if (isFullscreen) {
-                            danmuContainer.style.height = '100%';
-                            danmuContainer.style.width = '100%';
-                            // 强制重排以确保样式更新
-                            danmuContainer.offsetHeight;
+                // 设置video元素样式
+                videoElement.style.width = '100%';
+                videoElement.style.height = '100%';
+                videoElement.style.objectFit = 'contain';
+                videoElement.controls = true;
+                
+                // 模拟player对象，以便现有代码能正常工作
+                window.player = {
+                    currentTime: function() { return videoElement.currentTime; },
+                    src: function(src) { videoElement.src = src; },
+                    load: function() { videoElement.load(); },
+                    on: function(event, callback) {
+                        videoElement.addEventListener(event, callback);
+                    },
+                    ready: function(callback) {
+                        if (videoElement.readyState >= 2) {
+                            callback();
+                        } else {
+                            videoElement.addEventListener('canplay', callback);
                         }
-                    }, 100);
+                    },
+                    play: function() { return videoElement.play(); },
+                    pause: function() { videoElement.pause(); },
+                    paused: function() { return videoElement.paused; },
+                    muted: function() { return videoElement.muted; },
+                    volume: function(vol) {
+                        if (vol !== undefined) {
+                            videoElement.volume = vol;
+                            return this;
+                        }
+                        return videoElement.volume;
+                    }
+                };
+                
+                // 监听时间更新以显示弹幕
+                videoElement.addEventListener('timeupdate', showDanmus);
+                
+                // 如果已有视频数据，加载视频
+                if (window.videoData && window.videoData.video_path) {
+                    videoElement.src = window.videoData.video_path;
+                    videoElement.load();
+                }
+            }
+        }
+        
+        // Video.js会自动处理视频错误事件，在initVideoPlayer函数中添加错误处理
+        
+        // 视频解码准备好事件
+        // Video.js会自动处理尺寸调整和播放事件
+        
+        // 检测原生播放器接管和处理移动设备兼容性
+        function detectPlayerMode() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            const nativeNotice = document.getElementById('nativePlayerNotice');
+            const danmuContainer = document.getElementById('danmuContainer');
+            
+            // 检测是否为移动设备
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // 在移动设备上，尝试保持弹幕容器的可见性
+                danmuContainer.style.pointerEvents = 'none';
+                danmuContainer.style.zIndex = '2147483647'; // 最高层级
+                
+                // 调整弹幕大小以适应移动设备
+                adjustDanmuSizeForMobile();
+                
+                // 添加延迟检查，避免过早判断播放器被接管
+                setTimeout(() => {
+                    // Video.js处理移动设备兼容性
+                }, 1000);
+                
+                // Video.js会自动处理播放事件
+            }
+        }
+        
+        // Video.js会自动处理移动设备兼容性和播放器接管问题
+        
+        // 为移动设备调整弹幕大小
+        function adjustDanmuSizeForMobile() {
+            const style = document.createElement('style');
+            style.textContent = `
+                .danmu-item {
+                    font-size: 16px !important;
+                    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                }
+                @media (max-width: 480px) {
+                    .danmu-item {
+                        font-size: 14px !important;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+
+        
+        // 初始化播放器兼容性功能
+        function initPlayerCompatibility() {
+            // 所有浏览器都使用自定义播放器
+            console.log('所有浏览器使用自定义播放器');
+            
+            // 隐藏原生播放器接管提示
+            const nativeNotice = document.getElementById('nativePlayerNotice');
+            if (nativeNotice) {
+                nativeNotice.style.display = 'none';
+            }
+            
+            // Video.js会自动处理视频元素的设置
+            
+            // 初始化Video.js播放器
+            initVideoPlayer();
+            
+            // 添加窗口大小变化监听
+            window.addEventListener('resize', function() {
+                // Video.js会自动处理尺寸调整
+                
+                const danmuContainer = document.getElementById('danmuContainer');
+                const videoWrapper = document.querySelector('.video-wrapper');
+                
+                if (danmuContainer && videoWrapper) {
+                    const rect = videoWrapper.getBoundingClientRect();
+                    danmuContainer.style.width = rect.width + 'px';
+                    danmuContainer.style.height = rect.height + 'px';
                 }
             });
+            
+            // 调整弹幕容器样式，确保在Canvas上方
+            const danmuContainer = document.getElementById('danmuContainer');
+            if (danmuContainer) {
+                danmuContainer.style.pointerEvents = 'none';
+                danmuContainer.style.zIndex = '2147483647'; // 最高层级
+            }
+            
+            // 调整弹幕大小以适应移动设备
+            adjustDanmuSizeForMobile();
         }
+        
+        // 移除重复的DOMContentLoaded事件监听器，兼容性功能已在initPlayer中初始化
     </script>
 </body>
 </html>

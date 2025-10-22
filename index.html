@@ -510,7 +510,7 @@
         // 设置后端API基础URL为用户指定的地址
         const API_BASE = 'http://152.136.175.209:3002';
         const WS_BASE = 'ws://152.136.175.209:3002';
-        const DEFAULT_COVER = 'https://placehold.co/400x300?text=封面加载失败';
+        const DEFAULT_COVER = 'https://picsum.photos/400/300';
         let currentDeleteVideoId = null;
         let currentUserId = null;
         let currentUser = null;
@@ -640,6 +640,22 @@
         async function deleteVideo(videoId) {
             try {
                 const token = localStorage.getItem('authToken');
+                
+                // 第一步：删除实际的视频文件和封面文件
+                const deleteFilesResponse = await fetch(`${API_BASE}/api/videos/${videoId}/files`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const deleteFilesResult = await deleteFilesResponse.json();
+                if (deleteFilesResult.code !== 200) {
+                    console.warn('删除文件失败，但继续删除视频元数据:', deleteFilesResult.msg);
+                    // 这里不抛出错误，继续执行元数据删除
+                }
+                
+                // 第二步：删除视频元数据
                 const response = await fetch(`${API_BASE}/api/videos/${videoId}`, {
                     method: 'DELETE',
                     headers: {
@@ -649,7 +665,7 @@
                 
                 const result = await response.json();
                 if (result.code === 200) {
-                    showMessage('视频删除成功');
+                    showMessage('视频删除成功，文件已清理');
                     // 不需要手动刷新，WebSocket会广播消息让所有客户端更新
                 } else {
                     throw new Error(result.msg || '删除失败');
@@ -1083,20 +1099,39 @@
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             
+            // 检查是否已有上传正在进行，防止重复上传
+            if (currentUploadXHR && currentUploadXHR.readyState < 4) {
+                showMessage('已有上传任务正在进行中，请稍后再试', true);
+                return;
+            }
+            
+            // 立即禁用提交按钮，防止重复点击
+            submitBtn.disabled = true;
+            submitBtn.textContent = '准备上传...';
+            
             // 客户端表单验证
             if (!titleInput.value.trim()) {
                 showMessage('请输入视频标题', true);
                 titleInput.focus();
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交';
                 return;
             }
             
             if (!coverFileInput.files || coverFileInput.files.length === 0) {
                 showMessage('请选择封面图片', true);
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交';
                 return;
             }
             
             if (!videoFileInput.files || videoFileInput.files.length === 0) {
                 showMessage('请选择视频文件', true);
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交';
                 return;
             }
             
@@ -1111,7 +1146,6 @@
             progressText.textContent = '0%';
             progressContainer.style.display = 'block';
             
-            submitBtn.disabled = true;
             submitBtn.textContent = '上传中...';
             
             // 使用XMLHttpRequest来监控上传进度
@@ -1202,6 +1236,21 @@
                 // 获取token
                 const token = localStorage.getItem('authToken');
                 
+                // 第一步：删除实际的视频文件和封面文件
+                const deleteFilesResponse = await fetch(`${API_BASE}/api/videos/${currentDeleteVideoId}/files`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+                
+                const deleteFilesResult = await deleteFilesResponse.json();
+                if (deleteFilesResult.code !== 200) {
+                    console.warn('删除文件失败，但继续删除视频元数据:', deleteFilesResult.msg);
+                    // 这里不抛出错误，继续执行元数据删除
+                }
+                
+                // 第二步：删除视频元数据
                 const response = await fetch(`${API_BASE}/api/videos/${currentDeleteVideoId}`, {
                     method: 'DELETE',
                     headers: {
@@ -1214,7 +1263,7 @@
                 
                 toggleDeleteConfirm(false);
                 await loadVideos();
-                showMessage('视频已删除');
+                showMessage('视频已删除，文件已清理');
             } catch (error) {
                 showMessage('删除失败: ' + error.message, true);
             }
