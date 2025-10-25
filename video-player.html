@@ -277,15 +277,21 @@
             background: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
-            width: 40px;
-            height: 40px;
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px;
+            min-height: 40px;
+            max-width: 40px;
+            max-height: 40px;
             border-radius: 50%;
             cursor: pointer;
-            z-index: 10000;
+            z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: background-color 0.2s;
+            box-sizing: border-box;
+            overflow: hidden;
         }
         
         .custom-fullscreen-btn:hover {
@@ -1331,6 +1337,37 @@
                 
                 const result = await response.json();
                 if (result.code === 200) {
+                    // 发送WebSocket消息通知其他用户
+                    // 首先尝试初始化WebSocket连接（如果不存在）
+                    let ws;
+                    try {
+                        // 创建临时WebSocket连接发送删除消息
+                        const WS_BASE = 'ws://152.136.175.209:3002';
+                        ws = new WebSocket(WS_BASE);
+                        
+                        // 设置超时确保消息发送
+                        setTimeout(() => {
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                const displayName = currentUser.nickname && currentUser.nickname.trim() !== '' 
+                                    ? currentUser.nickname 
+                                    : (currentUser.username || '用户');
+                                
+                                ws.send(JSON.stringify({
+                                    type: 'VIDEO_DELETED',
+                                    data: {
+                                        videoId: videoId,
+                                        deleter: displayName
+                                    }
+                                }));
+                                
+                                // 发送后关闭连接
+                                ws.close();
+                            }
+                        }, 500);
+                    } catch (wsError) {
+                        console.warn('发送WebSocket消息失败，可能不影响主要功能:', wsError);
+                    }
+                    
                     showMessage('视频删除成功，文件已清理');
                     // 2秒后返回视频列表
                     setTimeout(() => {

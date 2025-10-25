@@ -431,7 +431,7 @@
                         <p>或者</p>
                         <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择图片</button>
                         <input type="file" name="cover" accept="image/*" id="coverFileInput">
-                        <div class="file-info" id="coverFileInfo">未选择文件</div>
+                        <div id="coverFileInfo" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; max-width: 100%; display: inline-block; box-sizing: border-box; padding: 5px 0; border: 1px solid transparent;">未选择文件</div>
                     </div>
                     
                     <!-- 视频拖放上传区域 -->
@@ -440,8 +440,9 @@
                         <p>拖放视频文件到这里</p>
                         <p>或者</p>
                         <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择视频</button>
+                        <p style="font-size: 0.9rem; color: #666;">视频大小超15MB建议先在本地压缩再上传</p>
                         <input type="file" name="video" accept="video/*" id="videoFileInput">
-                        <div class="file-info" id="videoFileInfo">未选择文件</div>
+                        <div id="videoFileInfo" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; max-width: 100%; display: inline-block; box-sizing: border-box; padding: 5px 0; border: 1px solid transparent;">未选择文件</div>
                     </div>
                 </div>
                 <div style="margin-bottom: 1rem; display: none;" id="progressContainer">
@@ -513,9 +514,7 @@
         </div>
     </main>
 
-    <!-- 引入 ffmpeg.wasm 库用于前端视频压缩 -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/core.min.js"></script>
+    <!-- 移除FFmpeg相关代码，视频压缩现由后端处理 -->
     <script>
         // 设置后端API基础URL为用户指定的地址
         const API_BASE = 'http://152.136.175.209:3002';
@@ -526,6 +525,7 @@
         let currentUser = null;
         let currentUploadInBackground = false; // 当前上传是否在后台进行
         let ws = null;
+        let compressProgressContainer = null; // 压缩进度条容器
 
         // 视频播放跳转功能
         function openVideo(videoId) {
@@ -570,12 +570,20 @@
                             console.log('收到视频删除消息:', message.data.videoId);
                             // 重新加载视频列表
                             loadVideos();
+                            // 显示删除通知
+                            if (message.data.deleter) {
+                                showMessage(`${message.data.deleter} 删除了视频`);
+                            }
                         }
                         // 处理新视频上传通知
                         else if (message.type === 'video_uploaded') {
                             console.log('收到新视频上传通知:', message.data);
+                            // 使用昵称显示通知
+                            const displayName = message.data.nickname && message.data.nickname.trim() !== ''
+                                ? message.data.nickname
+                                : (message.data.uploader || '用户');
                             // 显示通知消息
-                            showMessage(`${message.data.uploader} 上传了新视频: ${message.data.title}`);
+                            showMessage(`${displayName} 上传了新视频: ${message.data.title}`);
                             // 重新加载视频列表
                             loadVideos();
                         }
@@ -644,6 +652,7 @@
             const overlay = document.getElementById('overlay');
             const submitBtn = document.getElementById('uploadForm')?.querySelector('.submit-btn');
             const progressContainer = document.getElementById('progressContainer');
+            compressProgressContainer = document.getElementById('compressProgressContainer');
             
             // 如果要关闭模态框，并且有正在进行的上传，且不是后台上传模式
             if (!show && currentUploadXHR && currentUploadXHR.readyState < 4 && !backgroundMode) {
@@ -671,6 +680,7 @@
                     // 用户选择不中断上传，不关闭模态框
                     return;
                 }
+                // 压缩由后端处理，无需在前端取消压缩进程
             } else if (!show && backgroundMode) {
                 // 后台上传模式，不中断上传，只关闭模态框
                 currentUploadInBackground = true;
@@ -733,6 +743,21 @@
                 
                 const result = await response.json();
                 if (result.code === 200) {
+                    // 发送WebSocket消息通知其他用户
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const displayName = currentUser.nickname && currentUser.nickname.trim() !== '' 
+                            ? currentUser.nickname 
+                            : (currentUser.username || '用户');
+                        
+                        ws.send(JSON.stringify({
+                            type: 'VIDEO_DELETED',
+                            data: {
+                                videoId: videoId,
+                                deleter: displayName
+                            }
+                        }));
+                    }
+                    
                     showMessage('视频删除成功，文件已清理');
                     // 不需要手动刷新，WebSocket会广播消息让所有客户端更新
                 } else {
@@ -1043,6 +1068,15 @@
             
             // 通用拖放事件处理函数
             function setupDropArea(dropArea, fileInput, fileInfo) {
+                // 设置样式确保容器有正确的宽度限制
+                fileInfo.style.width = '100%';
+                fileInfo.style.maxWidth = '100%';
+                fileInfo.style.display = 'block';
+                fileInfo.style.overflow = 'hidden';
+                fileInfo.style.textOverflow = 'ellipsis';
+                fileInfo.style.whiteSpace = 'nowrap';
+                fileInfo.style.boxSizing = 'border-box';
+                
                 // 点击选择文件
                 dropArea.addEventListener('click', (e) => {
                     // 只有当点击的是区域本身或选择按钮时，才触发文件选择
@@ -1051,10 +1085,40 @@
                     }
                 });
                 
+                // 处理文件名截断的函数
+                function truncateFileName(fileName) {
+                    const maxLength = 20; // 最大显示字符数
+                    if (fileName.length <= maxLength) {
+                        return fileName;
+                    }
+                    
+                    // 获取文件扩展名
+                    const lastDotIndex = fileName.lastIndexOf('.');
+                    if (lastDotIndex === -1) {
+                        // 没有扩展名的情况
+                        return fileName.substring(0, maxLength) + '...';
+                    }
+                    
+                    // 有扩展名的情况
+                    const extension = fileName.substring(lastDotIndex);
+                    const nameWithoutExtension = fileName.substring(0, lastDotIndex);
+                    
+                    // 确保扩展名能完全显示，从文件名部分截取剩余空间
+                    const availableLengthForName = maxLength - extension.length - 3; // 减去省略号的长度
+                    
+                    if (availableLengthForName <= 0) {
+                        // 如果连扩展名都放不下，只显示部分扩展名
+                        return fileName.substring(0, maxLength - 3) + '...';
+                    }
+                    
+                    return nameWithoutExtension.substring(0, availableLengthForName) + '...' + extension;
+                }
+                
                 // 文件选择变化
                 fileInput.addEventListener('change', () => {
                     if (fileInput.files.length > 0) {
-                        fileInfo.textContent = fileInput.files[0].name;
+                        const truncatedName = truncateFileName(fileInput.files[0].name);
+                        fileInfo.textContent = truncatedName;
                     } else {
                         fileInfo.textContent = '未选择文件';
                     }
@@ -1093,7 +1157,8 @@
                         const dataTransfer = new DataTransfer();
                         dataTransfer.items.add(files[0]);
                         fileInput.files = dataTransfer.files;
-                        fileInfo.textContent = files[0].name;
+                        const truncatedName = truncateFileName(files[0].name);
+                        fileInfo.textContent = truncatedName;
                     }
                 });
             }
@@ -1157,71 +1222,7 @@
         }
 
         // 使用ffmpeg.wasm在浏览器中压缩视频
-        async function compressVideoInBrowser(videoFile) {
-            // 初始化FFmpeg实例
-            const { createFFmpeg, fetchFile } = FFmpeg;
-            const ffmpeg = createFFmpeg({
-                log: true,
-                corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js'
-            });
-            
-            // 加载ffmpeg.wasm核心
-            showMessage('正在加载压缩引擎...');
-            await ffmpeg.load();
-            
-            // 将视频文件写入内存
-            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-            
-            // 获取原始视频信息
-            showMessage('正在分析视频...');
-            await ffmpeg.run('-i', 'input.mp4', '-hide_banner');
-            
-            // 压缩视频：降低分辨率、码率和帧率
-            // 对于大型视频，使用更保守的压缩参数
-            showMessage('正在压缩视频，请耐心等待...');
-            
-            // 根据文件大小确定压缩强度
-            let crf = 28; // 视频质量控制（值越大，质量越低，文件越小）
-            let scale = '1280:-1'; // 默认缩小到1280宽度
-            
-            if (videoFile.size > 500 * 1024 * 1024) { // 超过500MB
-                scale = '854:-1'; // 缩小到854宽度
-                crf = 30;
-            } else if (videoFile.size > 200 * 1024 * 1024) { // 超过200MB
-                scale = '1280:-1';
-                crf = 28;
-            }
-            
-            // 执行压缩命令
-            await ffmpeg.run(
-                '-i', 'input.mp4',
-                '-vf', `scale=${scale}`, // 调整分辨率
-                '-c:v', 'libx264',      // 使用H.264编码
-                '-crf', crf.toString(), // 质量控制
-                '-preset', 'medium',    // 编码速度/质量权衡
-                '-c:a', 'aac',          // 音频编码
-                '-b:a', '128k',         // 音频比特率
-                '-r', '30',             // 帧率
-                'output.mp4'
-            );
-            
-            // 读取压缩后的文件
-            const data = ffmpeg.FS('readFile', 'output.mp4');
-            
-            // 创建新的Blob对象
-            const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
-            
-            // 创建File对象用于上传
-            const compressedFile = new File([compressedBlob], videoFile.name.replace(/\.[^/.]+$/, '') + '_compressed.mp4', {
-                type: 'video/mp4'
-            });
-            
-            console.log('原始视频大小:', (videoFile.size / 1024 / 1024).toFixed(2), 'MB');
-            console.log('压缩后大小:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
-            console.log('压缩率:', ((1 - compressedFile.size / videoFile.size) * 100).toFixed(2), '%');
-            
-            return compressedFile;
-        }
+        // 压缩视频功能已移至后端处理
         
         // 提交表单（带进度条）
         async function submitForm() {
@@ -1274,36 +1275,14 @@
                 return;
             }
             
-            // 初始化FormData
-            let formData = new FormData(form);
+            // 初始化FormData，直接使用原始视频文件，由后端处理压缩
+            const formData = new FormData(form);
             
-            // 检查视频文件大小，如果超过100MB则在本地进行压缩
+            // 显示上传准备信息
             const videoFile = videoFileInput.files[0];
-            const NEED_COMPRESS_SIZE = 15 * 1024 * 1024; // 15MB
-            
-            if (videoFile && videoFile.size > NEED_COMPRESS_SIZE) {
-                showMessage('视频文件较大，开始在本地压缩以加快上传速度...');
-                submitBtn.disabled = true;
-                submitBtn.textContent = '本地压缩中...';
-                
-                try {
-                    // 使用ffmpeg.wasm进行前端压缩
-                    const compressedVideo = await compressVideoInBrowser(videoFile);
-                    
-                    // 替换FormData中的视频文件为压缩后的文件
-                    formData.delete('video'); // 删除原视频
-                    formData.append('video', compressedVideo); // 添加压缩后的视频
-                    
-                    showMessage('本地压缩完成，准备上传压缩后的视频');
-                } catch (compressError) {
-                    console.error('本地压缩失败:', compressError);
-                    showMessage('本地压缩失败，将上传原始视频', true);
-                    // 继续使用原始视频
-                    formData = new FormData(form);
-                } finally {
-                    submitBtn.textContent = '参数检查中...';
-                }
-            }
+            console.log('视频文件大小:', (videoFile.size / 1024 / 1024).toFixed(2) + 'MB');
+            showMessage('准备上传视频，由后端处理压缩...');
+            submitBtn.textContent = '参数检查中...';
             
             // 获取token
             const token = localStorage.getItem('authToken');
@@ -1313,12 +1292,7 @@
             progressText.textContent = '0%';
             progressContainer.style.display = 'block';
             
-            // 重置压缩进度条
-            if (compressProgressBar && compressProgressText && compressProgressContainer) {
-                compressProgressBar.style.width = '0%';
-                compressProgressText.textContent = '视频压缩中: 0%';
-                compressProgressContainer.style.display = 'none';
-            }
+            // 压缩进度条相关代码已移除，视频压缩现由后端处理
             
             // 首先进行视频参数检查
             submitBtn.textContent = '参数检查中...';
@@ -1448,7 +1422,21 @@
                         backgroundUploadBtn.style.display = 'none';
                     }
                     
-                    showMessage('网络错误，请重试', true);
+                    // 前端不需要取消压缩过程，压缩由后端处理
+                    
+                    // 通知服务器清理可能的部分上传文件
+                    const token = localStorage.getItem('authToken');
+                    if (token) { // 只有在有token时才发送清理请求，避免401错误
+                        fetch(`${API_BASE}/api/upload/cleanup`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({})
+                        }).catch(err => console.error('清理请求失败:', err));
+                    }
+                    
                     showMessage('网络错误，请重试', true);
                     // 清理上传请求引用
                     currentUploadXHR = null;
@@ -1469,7 +1457,21 @@
                         backgroundUploadBtn.style.display = 'none';
                     }
                     
-                    showMessage('上传已取消');
+                    // 压缩由后端处理，无需在前端取消压缩过程
+                    
+                    // 通知服务器清理可能的部分上传文件
+                    const token = localStorage.getItem('authToken');
+                    if (token) { // 只有在有token时才发送清理请求，避免401错误
+                        fetch(`${API_BASE}/api/upload/cleanup`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({})
+                        }).catch(err => console.error('清理请求失败:', err));
+                    }
+                    
                     showMessage('上传已取消');
                     // 清理上传请求引用
                     currentUploadXHR = null;
@@ -1536,6 +1538,22 @@
                 
                 toggleDeleteConfirm(false);
                 await loadVideos();
+                
+                // 发送WebSocket消息通知其他用户
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const displayName = currentUser.nickname && currentUser.nickname.trim() !== '' 
+                        ? currentUser.nickname 
+                        : (currentUser.username || '用户');
+                    
+                    ws.send(JSON.stringify({
+                        type: 'VIDEO_DELETED',
+                        data: {
+                            videoId: currentDeleteVideoId,
+                            deleter: displayName
+                        }
+                    }));
+                }
+                
                 showMessage('视频已删除，文件已清理');
             } catch (error) {
                 showMessage('删除失败: ' + error.message, true);
