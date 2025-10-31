@@ -5,16 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>视频播放</title>
-    <!-- 使用国内稳定CDN引入Video.js，提高加载速度 -->
-    <!-- 主CDN：BootCDN -->
-    <link href="https://cdn.bootcdn.net/ajax/libs/video.js/7.20.3/video-js.min.css" rel="stylesheet">
-    <script src="https://cdn.bootcdn.net/ajax/libs/video.js/7.20.3/video.min.js"></script>
-    
-    <!-- 备用CDN1：CDNJS -->
-    <script>window.videojs||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.20.3/video.min.js"><\/script><link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.20.3/video-js.min.css" rel="stylesheet">')</script>
-    
-    <!-- 备用CDN2：360 CDN -->
-    <script>window.videojs||document.write('<script src="https://lib.baomitu.com/video.js/7.20.3/video.min.js"><\/script><link href="https://lib.baomitu.com/video.js/7.20.3/video-js.min.css" rel="stylesheet">')</script>
+    <!-- 使用本地Video.js库 -->
+    <link href="lib/video-js.min.css" rel="stylesheet">
+    <script src="lib/video.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -920,7 +913,7 @@
 
     <script>
         // 设置后端API基础URL为用户指定的地址
-        const API_BASE = 'http://152.136.175.209:3002';
+        const API_BASE = 'https://video-dns.wu.airoe.cn';
         const DEFAULT_COVER = 'https://picsum.photos/400/300';
         let videoId = null;
         let videoData = null;
