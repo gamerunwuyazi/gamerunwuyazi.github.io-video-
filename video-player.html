@@ -988,12 +988,10 @@
                     }
                 });
                 
-                // 处理触摸事件
+                // 处理触摸事件 - 不再阻止所有默认行为，以允许进度条点击
                 if (window.TouchEvent) {
-                    player.on('touchstart', function(e) {
-                        // 阻止默认行为，避免系统接管
-                        e.preventDefault();
-                    }, { passive: false });
+                    // 移除全局阻止默认行为的代码，让进度条可以正常响应点击
+                    // 如果需要针对特定区域阻止默认行为，可以在具体元素上单独处理
                 }
                 
                 // 针对iOS设备的特殊处理
@@ -1004,6 +1002,53 @@
                     player.controlBar.el_.style.opacity = '1';
                 }
             }
+            
+            // 修复进度条点击问题：确保进度条点击时正确设置视频时间
+            setTimeout(function() {
+                try {
+                    const progressControl = player.controlBar.progressControl;
+                    if (progressControl && progressControl.el_) {
+                        const progressEl = progressControl.el_;
+                        
+                        // 保存原始的点击处理函数
+                        const originalClickHandler = progressEl.onclick;
+                        
+                        // 添加自定义点击处理，确保正确计算点击位置的时间
+                        progressEl.addEventListener('click', function(e) {
+                            // 阻止事件冒泡，防止可能的冲突
+                            e.stopPropagation();
+                            
+                            // 获取进度条元素的位置和尺寸
+                            const rect = progressEl.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const progressBarWidth = rect.width;
+                            
+                            // 计算点击位置对应的视频时间比例
+                            const seekPercent = clickX / progressBarWidth;
+                            
+                            // 确保比例在0-1之间
+                            const clampedPercent = Math.max(0, Math.min(1, seekPercent));
+                            
+                            // 获取视频总时长并计算目标时间
+                            const duration = player.duration();
+                            const targetTime = duration * clampedPercent;
+                            
+                            console.log('自定义进度条点击处理:', {
+                                clickX: clickX,
+                                width: progressBarWidth,
+                                percent: clampedPercent,
+                                duration: duration,
+                                targetTime: targetTime
+                            });
+                            
+                            // 直接设置视频时间
+                            player.currentTime(targetTime);
+                        });
+                    }
+                } catch (error) {
+                    console.error('设置自定义进度条点击处理失败:', error);
+                }
+            }, 1000);
             
             // 禁用Video.js默认的全屏按钮并集成自定义全屏按钮到控制栏
             setTimeout(function() {
@@ -1066,8 +1111,14 @@
                 }, 100);
             });
             
+            player.on('seeking', function() {
+                const currentTime = player.currentTime();
+                console.log('视频开始跳转，当前时间:', currentTime);
+            });
+            
             player.on('seeked', function() {
-                console.log('视频跳转');
+                const newTime = player.currentTime();
+                console.log('视频跳转完成，新时间:', newTime);
                 resetDanmuLines();
                 clearAllDanmus();
                 showDanmus();
