@@ -818,7 +818,7 @@
             
             <!-- 弹幕控制区域 -->
             <div class="danmu-controls">
-                <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕...">
+                <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕..." autocomplete="danmu">
                 <div class="danmu-color-picker">
                     <span class="color-label">颜色:</span>
                     <div class="color-options">
@@ -856,7 +856,7 @@
         <div class="comment-section">
             <h2 style="margin-bottom: 1rem;">评论区</h2>
             <div class="comment-form">
-                <input type="text" class="comment-input" id="commentInput" placeholder="发表评论...">
+                <textarea class="comment-input" id="commentInput" placeholder="发表评论..." rows="1"></textarea>
                 <button class="comment-submit" onclick="submitComment()">评论</button>
             </div>
             
@@ -1003,52 +1003,189 @@
                 }
             }
             
-            // 修复进度条点击问题：确保进度条点击时正确设置视频时间
+            // 彻底修复进度条点击问题
             setTimeout(function() {
                 try {
+                    // 查找所有可能的进度条相关元素
                     const progressControl = player.controlBar.progressControl;
-                    if (progressControl && progressControl.el_) {
-                        const progressEl = progressControl.el_;
+                    if (progressControl) {
+                        // 查找具体的进度条轨道元素
+                        const progressBar = progressControl.el().querySelector('.vjs-progress-holder, .vjs-play-progress, .vjs-progress-control');
                         
-                        // 保存原始的点击处理函数
-                        const originalClickHandler = progressEl.onclick;
+                        if (progressBar) {
+                            
+                            // 阻止默认事件处理
+                            progressBar.addEventListener('mousedown', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleProgressBarClick(e, progressBar);
+                            }, true); // 使用捕获阶段
+                            
+                            progressBar.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleProgressBarClick(e, progressBar);
+                            }, true); // 使用捕获阶段
+                        }
                         
-                        // 添加自定义点击处理，确保正确计算点击位置的时间
-                        progressEl.addEventListener('click', function(e) {
-                            // 阻止事件冒泡，防止可能的冲突
-                            e.stopPropagation();
+                        // 同时也处理整个进度控制区域
+                        const progressControlEl = progressControl.el();
+                        if (progressControlEl) {
+                            progressControlEl.addEventListener('mousedown', function(e) {
+                                // 只有当目标不是子按钮（如音量按钮等）时才处理
+                                if (!e.target.closest('.vjs-control-bar > .vjs-control')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleProgressBarClick(e, progressControlEl);
+                                }
+                            }, true);
                             
-                            // 获取进度条元素的位置和尺寸
-                            const rect = progressEl.getBoundingClientRect();
-                            const clickX = e.clientX - rect.left;
-                            const progressBarWidth = rect.width;
-                            
-                            // 计算点击位置对应的视频时间比例
-                            const seekPercent = clickX / progressBarWidth;
-                            
-                            // 确保比例在0-1之间
-                            const clampedPercent = Math.max(0, Math.min(1, seekPercent));
-                            
-                            // 获取视频总时长并计算目标时间
-                            const duration = player.duration();
-                            const targetTime = duration * clampedPercent;
-                            
-                            console.log('自定义进度条点击处理:', {
-                                clickX: clickX,
-                                width: progressBarWidth,
-                                percent: clampedPercent,
-                                duration: duration,
-                                targetTime: targetTime
-                            });
-                            
-                            // 直接设置视频时间
-                            player.currentTime(targetTime);
-                        });
+                            progressControlEl.addEventListener('click', function(e) {
+                                // 只有当目标不是子按钮（如音量按钮等）时才处理
+                                if (!e.target.closest('.vjs-control-bar > .vjs-control')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleProgressBarClick(e, progressControlEl);
+                                }
+                            }, true);
+                        }
                     }
                 } catch (error) {
-                    console.error('设置自定义进度条点击处理失败:', error);
+                    console.error('设置进度条点击处理失败:', error);
                 }
-            }, 1000);
+            }, 1500); // 增加延迟以确保Video.js完全初始化
+            
+            // 进度条点击处理函数 - 完全重写版本，确保时间设置生效
+            function handleProgressBarClick(e, element) {
+                try {
+                    // 获取元素的位置和尺寸
+                    const rect = element.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const progressBarWidth = rect.width;
+                    
+                    // 计算点击位置对应的视频时间比例
+                    const seekPercent = clickX / progressBarWidth;
+                    
+                    // 确保比例在0-1之间
+                    const clampedPercent = Math.max(0, Math.min(1, seekPercent));
+                    
+                    // 获取视频总时长
+                    const duration = player.duration();
+                    
+                    let targetTime;
+                    
+                    // 检查duration是否有效
+                    if (isNaN(duration) || duration <= 0) {
+                        // 尝试获取已缓冲部分的信息
+                        const buffered = player.buffered();
+                        
+                        if (buffered && buffered.length > 0) {
+                            // 获取最后一个缓冲区间的结束时间
+                            const bufferedEnd = buffered.end(buffered.length - 1);
+                            
+                            if (!isNaN(bufferedEnd) && bufferedEnd > 0) {
+                                // 使用已缓冲部分的结束时间作为参考
+                                targetTime = bufferedEnd * clampedPercent;
+                            } else {
+                                // 如果无法获取缓冲信息，使用当前播放位置的相对偏移
+                                const currentTime = player.currentTime();
+                                targetTime = currentTime + (clampedPercent * 10); // 允许向前或向后跳转一小段时间
+                            }
+                        } else {
+                            // 如果没有任何缓冲信息，不进行跳转
+                            return;
+                        }
+                    } else {
+                        // 正常情况：使用视频总时长计算目标时间
+                        targetTime = duration * clampedPercent;
+                        
+                        // 检查目标时间是否在已缓冲范围内
+                        const buffered = player.buffered();
+                        let canSeek = false;
+                        
+                        if (buffered && buffered.length > 0) {
+                            for (let i = 0; i < buffered.length; i++) {
+                                if (targetTime >= buffered.start(i) && targetTime <= buffered.end(i)) {
+                                    canSeek = true;
+                                    break;
+                                }
+                            }
+                            
+                            // 如果目标时间不在缓冲范围内，尝试跳转到最接近的已缓冲位置
+                            if (!canSeek) {
+                                // 寻找最接近的缓冲结束点
+                                let closestBufferEnd = 0;
+                                for (let i = 0; i < buffered.length; i++) {
+                                    if (buffered.end(i) > closestBufferEnd) {
+                                        closestBufferEnd = buffered.end(i);
+                                    }
+                                }
+                                
+                                if (closestBufferEnd > 0) {
+                                    targetTime = Math.min(targetTime, closestBufferEnd * 0.9); // 稍微保守一点，跳转到缓冲结束点的90%
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 确保目标时间不为负数
+                    targetTime = Math.max(0, targetTime);
+                    
+                    // 关键修复：使用更直接的方法设置视频时间
+                    // 1. 首先暂停视频，避免跳转时的冲突
+                    const wasPlaying = !player.paused();
+                    player.pause();
+                    
+                    // 2. 尝试多种方式设置时间
+                    try {
+                        // 方式1: 通过Video.js API设置
+                        player.currentTime(targetTime);
+                    } catch (e) {
+                        // 静默处理错误
+                    }
+                    
+                    // 方式2: 直接访问HTML5视频元素设置
+                    if (player.tech_ && player.tech_.el_) {
+                        try {
+                            player.tech_.el_.currentTime = targetTime;
+                        } catch (e) {
+                            // 静默处理错误
+                        }
+                    }
+                    
+                    // 方式3: 尝试通过原始video元素设置（如果能直接访问）
+                    const videoElement = document.querySelector('video');
+                    if (videoElement) {
+                        try {
+                            videoElement.currentTime = targetTime;
+                        } catch (e) {
+                            // 静默处理错误
+                        }
+                    }
+                    
+                    // 3. 使用setTimeout确保时间设置生效
+                    setTimeout(() => {
+                        const currentTimeAfterSet = player.currentTime();
+                        
+                        // 如果设置后时间仍然不对，再次尝试设置
+                        if (Math.abs(currentTimeAfterSet - targetTime) > 0.5) {
+                            player.currentTime(targetTime);
+                            
+                            if (player.tech_ && player.tech_.el_) {
+                                player.tech_.el_.currentTime = targetTime;
+                            }
+                        }
+                        
+                        // 恢复播放状态
+                        if (wasPlaying && !player.paused()) {
+                            player.play().catch(() => {}); // 静默处理错误
+                        }
+                    }, 100);
+                    
+                } catch (error) {
+                    // 静默处理错误
+                }
+            }
             
             // 禁用Video.js默认的全屏按钮并集成自定义全屏按钮到控制栏
             setTimeout(function() {
@@ -1112,13 +1249,11 @@
             });
             
             player.on('seeking', function() {
-                const currentTime = player.currentTime();
-                console.log('视频开始跳转，当前时间:', currentTime);
+                // 视频开始跳转
             });
             
             player.on('seeked', function() {
-                const newTime = player.currentTime();
-                console.log('视频跳转完成，新时间:', newTime);
+                // 视频跳转完成
                 resetDanmuLines();
                 clearAllDanmus();
                 showDanmus();

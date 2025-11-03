@@ -417,7 +417,7 @@
             <h2>上传新视频</h2>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div style="margin-bottom: 1rem;">
-                    <input type="text" name="title" placeholder="视频标题" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" name="title" placeholder="视频标题" style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;" autocomplete="off">
                 </div>
                 <div style="margin-bottom: 1rem;">
                     <textarea name="description" placeholder="视频描述" style="width: 100%; height: 100px; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
@@ -430,7 +430,7 @@
                         <p>拖放封面图片到这里</p>
                         <p>或者</p>
                         <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择图片</button>
-                        <input type="file" name="cover" accept="image/*" id="coverFileInput">
+                        <input type="file" name="cover" accept="image/*" id="coverFileInput" autocomplete="off">
                         <div id="coverFileInfo" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; max-width: 100%; display: inline-block; box-sizing: border-box; padding: 5px 0; border: 1px solid transparent;">未选择文件</div>
                     </div>
                     
@@ -441,7 +441,7 @@
                         <p>或者</p>
                         <button type="button" class="submit-btn" style="margin-top: 1rem; background: #00a1d6; color: white;">选择视频</button>
                         <p style="font-size: 0.9rem; color: #666;">视频大小超15MB建议先在本地压缩再上传</p>
-                        <input type="file" name="video" accept="video/*" id="videoFileInput">
+                        <input type="file" name="video" accept="video/*" id="videoFileInput" autocomplete="off">
                         <div id="videoFileInfo" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; max-width: 100%; display: inline-block; box-sizing: border-box; padding: 5px 0; border: 1px solid transparent;">未选择文件</div>
                     </div>
                 </div>
