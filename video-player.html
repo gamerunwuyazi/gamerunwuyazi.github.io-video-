@@ -165,6 +165,46 @@
             box-shadow: 0 0 0 2px #fff, 0 0 0 4px #333;
         }
         
+        /* Div容器式输入框样式 */
+        .div-input-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        .div-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #222;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+            min-height: 36px;
+            font-family: inherit;
+            resize: none;
+            overflow: hidden;
+            line-height: 1.5;
+            box-sizing: border-box;
+        }
+        
+        .div-input:focus {
+            border-color: #1890ff;
+        }
+        
+        /* Placeholder样式 */
+        .div-input:empty:before {
+            content: attr(placeholder);
+            color: #666;
+            pointer-events: none;
+        }
+        
+        /* 密码输入框样式 */
+        .password-input {
+            font-family: 'Courier New', monospace;
+        }
+        
         /* 自定义播放器全屏样式 - 优化全屏体验 */
         .video-player-wrapper:fullscreen,
         .video-player-wrapper:-webkit-full-screen,
@@ -818,7 +858,9 @@
             
             <!-- 弹幕控制区域 -->
             <div class="danmu-controls">
-                <input type="text" class="danmu-input" id="danmuInput" placeholder="发送弹幕..." autocomplete="danmu">
+                <div class="div-input-container">
+                    <div class="div-input" id="danmuInput" contenteditable="true" placeholder="发送弹幕..." autocomplete="danmu"></div>
+                </div>
                 <div class="danmu-color-picker">
                     <span class="color-label">颜色:</span>
                     <div class="color-options">
@@ -897,13 +939,19 @@
         <div id="registerForm" class="auth-form" style="display: none;">
             <h3>用户注册</h3>
             <div style="margin-bottom: 1rem;">
-                <input type="text" id="registerUsername" placeholder="用户名（4-20个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                <div class="div-input-container">
+                    <div class="div-input" id="registerUsername" contenteditable="true" placeholder="用户名（4-20个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></div>
+                </div>
             </div>
             <div style="margin-bottom: 1rem;">
-                <input type="password" id="registerPassword" placeholder="密码（至少6个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                <div class="div-input-container">
+                    <div class="div-input password-input" id="registerPassword" contenteditable="true" placeholder="密码（至少6个字符）" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></div>
+                </div>
             </div>
             <div style="margin-bottom: 1.5rem;">
-                <input type="text" id="registerNickname" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;">
+                <div class="div-input-container">
+                    <div class="div-input" id="registerNickname" contenteditable="true" placeholder="昵称" required style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;"></div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button type="button" id="registerSubmit" class="submit-btn" onclick="submitRegister()">注册</button>
@@ -950,7 +998,7 @@
             player = videojs('videoPlayer', {
                 controls: true,
                 autoplay: false,
-                preload: 'auto',
+                preload: 'metadata',
                 language: 'zh-CN',
                 responsive: true,
                 bigPlayButton: true,
@@ -968,7 +1016,12 @@
                 html5: {
                     nativeAudioTracks: false,
                     nativeVideoTracks: false,
-                    nativeTextTracks: false
+                    nativeTextTracks: false,
+                    // 启用流式媒体支持
+                    vhs: {
+                        enableLowInitialPlaylist: true,
+                        partiallyResumeEndOfStream: true
+                    }
                 }
             });
             
@@ -2020,7 +2073,7 @@
                 
                 const result = await response.json();
                 if (result.code === 200) {
-                    input.value = '';
+                    input.textContent = '';
                     showMessage('弹幕发送成功');
                 } else {
                     throw new Error(result.msg);
@@ -2303,9 +2356,9 @@
         
         // 注册表单提交
         async function submitRegister() {
-            const username = document.getElementById('registerUsername').value.trim();
-            const password = document.getElementById('registerPassword').value.trim();
-            const nickname = document.getElementById('registerNickname').value.trim();
+            const username = document.getElementById('registerUsername').textContent.trim();
+            const password = document.getElementById('registerPassword').textContent.trim();
+            const nickname = document.getElementById('registerNickname').textContent.trim();
             const submitBtn = document.getElementById('registerSubmit');
             
             if (!username || !password) {
@@ -2431,7 +2484,7 @@
         // 提交弹幕
         async function sendDanmu() {
             const input = document.getElementById('danmuInput');
-            const content = input.value.trim();
+            const content = input.textContent.trim();
             const sendBtn = document.querySelector('.danmu-send');
             const videoPlayer = document.getElementById('videoPlayer');
             
